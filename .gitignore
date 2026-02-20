@@ -6,36 +6,50 @@
 *.lo
 *.o
 *.obj
+*.exp
+*.pdb
+*.idb
+*.pyc
 
 # Precompiled Headers
 *.gch
 *.pch
 
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
 # Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
 # Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
 # Executables
 *.exe
 *.out
 *.app
+*.dll
+*.lib
+*.so
+*.dylib
 
-# debug information files
-*.dwo
+*.pdb
+*.idb
+*.recipe
+*.log
+*.ilk
+*.tlog
+*.lastbuildstate
+*.vcxproj
+*.filters
+*.user
+*.sln
+*.xlsx
+**/.project
+
+*.workspace
+*.mk
+compile_commands.json
+Makefile
+*.DS_Store
+**/concept
+
+.vs/
+.git/
+
+# Resources not to be ignored
+!resources/*
+!**resources/**
