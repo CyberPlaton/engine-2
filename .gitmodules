@@ -1,12 +1,6 @@
 [submodule "3rdparty/glfw/glfw"]
 	path = 3rdparty/glfw/glfw
 	url = https://github.com/glfw/glfw.git
-[submodule "3rdparty/bgfx/bgfx"]
-	path = 3rdparty/bgfx/bgfx
-	url = https://github.com/CyberPlaton/bgfx.git
-[submodule "3rdparty/bimg/bimg"]
-	path = 3rdparty/bimg/bimg
-	url = https://github.com/bkaradzic/bimg.git
 [submodule "3rdparty/box2d/box2d"]
 	path = 3rdparty/box2d/box2d
 	url = https://github.com/erincatto/box2d.git
