@@ -68,7 +68,7 @@ workspace("Workspace")
 	architecture "x86_64"
 	configurations{"debug", "hybrid", "release"}
 	language "C++"
-	cppdialect "Default"
+	cppdialect "C++17"
 	systemversion(SYSTEM_VERSION)
 	staticruntime "Off"
 	flags{"MultiProcessorCompile"}
