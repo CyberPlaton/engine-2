@@ -4,6 +4,8 @@
 kokoro::entry::main(argc, argv)
 
 #if PLATFORM_WINDOWS
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) \
 { \
 	return _KOKORO_MAIN_ENTRY_(0, nullptr); \

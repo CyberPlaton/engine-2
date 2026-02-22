@@ -30,19 +30,19 @@ function set_basic_defines()
 	externalanglebrackets "On"
 
 	if PLATFORM == "windows" then
-		defines { "BGFX_CONFIG_RENDERER_DIRECT3D11" }
+		defines { "BGFX_CONFIG_RENDERER_DIRECT3D11", "PLATFORM_WINDOWS=1"}
 		buildoptions{"/bigobj"}
 		editandcontinue "Off"
 		filter {"action:vs*"}
 			buildoptions{"/Zc:__cplusplus", "/Zc:preprocessor"}
 		filter{}
 	elseif PLATFORM == "linux" then
-		defines { "BGFX_CONFIG_RENDERER_VULKAN" }
+		defines { "BGFX_CONFIG_RENDERER_VULKAN", "PLATFORM_LINUX=1"}
 		filter {"action:gmake*"}
 			buildoptions{"-fPIC"}
 		filter{}
 	elseif PLATFORM == "macosx" then
-		defines {"BGFX_CONFIG_RENDERER_VULKAN"}
+		defines {"BGFX_CONFIG_RENDERER_VULKAN", "PLATFORM_MACOSX=1"}
 	else
 	end
 
