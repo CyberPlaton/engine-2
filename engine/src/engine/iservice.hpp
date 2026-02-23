@@ -16,7 +16,7 @@ namespace kokoro
 		virtual void	post_init() {};
 
 		virtual void	shutdown() {};
-		virtual void	update(float) {}
+		virtual void	update(float) {};
 	};
 
 } //- kokoro
