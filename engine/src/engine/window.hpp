@@ -1,9 +1,17 @@
 #pragma once
+#if PLATFORM_WINDOWS
+	#define GLFW_EXPOSE_NATIVE_WIN32
+#elif PLATFORM_LINUX
+	#define GLFW_EXPOSE_NATIVE_X11
+#elif PLATFORM_MACOSX
+	#define GLFW_EXPOSE_NATIVE_COCOA
+#endif
 #include <glfw.h>
-#include <bgfx.h>
 
 namespace kokoro
 {
+	void* native_window_handle(GLFWwindow* window);
+
 	//------------------------------------------------------------------------------------------------------------------------
 	enum modifier_key : uint8_t
 	{
@@ -34,7 +42,6 @@ namespace kokoro
 	struct swindow final
 	{
 		GLFWwindow* m_window					= nullptr;
-		bgfx::FrameBufferHandle m_framebuffer	= BGFX_INVALID_HANDLE;
 		uint16_t m_width						= 0;
 		uint16_t m_height						= 0;
 	};

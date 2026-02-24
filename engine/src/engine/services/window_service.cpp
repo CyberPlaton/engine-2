@@ -69,7 +69,6 @@ namespace kokoro
 		{
 			return false;
 		}
-
 		/*glfwSetErrorCallback(glfw_error_callback);*/
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		return true;
@@ -90,7 +89,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void cwindow_service::update(float dt)
 	{
-
+		glfwPollEvents();
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -101,11 +100,20 @@ namespace kokoro
 			return window;
 		}
 
-		window.m_window = glfwCreateWindow(static_cast<int>(w), static_cast<int>(h),
-			"Main Window", nullptr, nullptr);
+		window.m_window = glfwCreateWindow(static_cast<int>(w), static_cast<int>(h), "Main Window", nullptr, nullptr);
 		window.m_width = w;
 		window.m_height = h;
-		window.m_framebuffer = bgfx::createFrameBuffer(window.m_window, w, h);
+		window.m_framebuffer = bgfx::createFrameBuffer(native_window_handle(window.m_window), w, h);
+
+		glfwSetCursor(window.m_window, glfwCreateStandardCursor(GLFW_ARROW_CURSOR));
+		glfwSetKeyCallback(window.m_window, glfw_key_callback);
+		glfwSetMouseButtonCallback(window.m_window, glfw_mouse_button_callback);
+		glfwSetCursorPosCallback(window.m_window, glfw_cursor_callback);
+		glfwSetWindowSizeCallback(window.m_window, glfw_window_size_callback);
+		glfwSetScrollCallback(window.m_window, glfw_scroll_callback);
+		glfwSetCharCallback(window.m_window, glfw_character_callback);
+		glfwSetWindowCloseCallback(window.m_window, glfw_window_close_callback);
+		glfwSetJoystickCallback(glfw_gamepad_connection_callback);
 		return window;
 	}
 

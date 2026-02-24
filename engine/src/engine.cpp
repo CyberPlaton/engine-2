@@ -1,4 +1,5 @@
 #include <engine.hpp>
+#include <engine/services/render_service.hpp>
 
 namespace kokoro
 {
@@ -47,6 +48,9 @@ namespace kokoro
 	void cengine::run()
 	{
 		m_running = true;
+
+		auto& rs = instance().service<crender_service>();
+
 		while (m_running)
 		{
 			const auto dt = 0.033f;
