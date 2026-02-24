@@ -55,10 +55,14 @@ namespace kokoro
 		{
 			const auto dt = 0.033f;
 
+			rs.begin_frame();
+
 			for (const auto& [_, s] : m_services)
 			{
 				s->update(dt);
 			}
+
+			rs.end_frame();
 		}
 	}
 
