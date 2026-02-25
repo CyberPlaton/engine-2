@@ -26,6 +26,9 @@ namespace kokoro
 		void		end_frame();
 
 	private:
+		bgfx::FrameBufferHandle m_backbuffer			= BGFX_INVALID_HANDLE;
+		bgfx::ProgramHandle m_merge_program				= BGFX_INVALID_HANDLE;
+		bgfx::UniformHandle m_texture_chain_uniform		= BGFX_INVALID_HANDLE;
 	};
 
 } //- kokoro
