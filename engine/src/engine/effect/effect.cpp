@@ -3,6 +3,7 @@
 #include <engine/effect/shader.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <engine/io/io.hpp>
+#include <core/mutex.hpp>
 #include <registrator.hpp>
 #include <engine.hpp>
 #include <unordered_map>
@@ -13,6 +14,8 @@ namespace kokoro
 	{
 		std::unordered_map<const char*, seffect> instance_cache;
 		std::unordered_map<const char*, seffect_snapshot> snapshot_cache;
+		core::cmutex instance_mutex;
+		core::cmutex snapshot_mutex;
 
 		//------------------------------------------------------------------------------------------------------------------------
 		std::string default_include_handler(const char* filepath)
@@ -205,6 +208,9 @@ namespace kokoro
 			}
 		}
 
+
+		core::cscoped_mutex m(instance_mutex);
+
 		//- Store created effect to instance cache
 		if (auto [it, result] = instance_cache.emplace(std::piecewise_construct,
 			std::forward_as_tuple(name),
@@ -243,6 +249,8 @@ namespace kokoro
 				{
 					if (auto var = kokoro::from_json_blob(rttr::type::get<seffect_snapshot>(), mem->data(), mem->size()); var.is_valid())
 					{
+						core::cscoped_mutex m(snapshot_mutex);
+
 						if (auto [it, result] = snapshot_cache.emplace(std::piecewise_construct,
 							std::forward_as_tuple(filepath),
 							std::forward_as_tuple(std::move(var.get_value<seffect_snapshot>()))); result)
@@ -285,6 +293,8 @@ namespace kokoro
 			{
 				bgfx::destroy(effect.m_program);
 			}
+
+			core::cscoped_mutex m(instance_mutex);
 
 			instance_cache.erase(name);
 		}
