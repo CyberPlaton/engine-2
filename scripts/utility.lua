@@ -26,6 +26,19 @@ function set_and_disable_common_warnings_errors()
 end
 
 ------------------------------------------------------------------------------------------------------------------------
+function set_project_resources_dir()
+	local curr = os.getcwd()
+	local res_dir = path.join(curr, "resources")
+	defines { "PROJECT_RESOURCES_DIR=\"" .. res_dir .. "\"" }
+end
+
+------------------------------------------------------------------------------------------------------------------------
+function set_engine_resources_dir()
+	local res_dir = path.join(WORKSPACE_DIR, "resources")
+	defines { "KOKORO_RESOURCES_DIR=\"" .. res_dir .. "\"" }
+end
+
+------------------------------------------------------------------------------------------------------------------------
 function set_basic_defines()
 	externalanglebrackets "On"
 
@@ -520,6 +533,8 @@ function add_project_main_app(name, build_options, define_flags, thirdparty_deps
 		set_basic_links()
 		set_bx_includes()
 		set_libs_path()
+		set_engine_resources_dir()
+		set_project_resources_dir()
 
 		-- include and link thirdparty deps
 		for ii = 1, #thirdparty_deps do

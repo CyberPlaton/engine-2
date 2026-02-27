@@ -14,7 +14,7 @@ namespace kokoro
 			"@ VERTEX								\n"
 			"$input a_position, a_texcoord0			\n"
 			"$output v_texcoord0					\n"
-			"#include </shaders/common.sh>			\n"
+			"#include <engine/shaders/common.sh>	\n"
 			"void main()							\n"
 			"{										\n"
 			"\tgl_Position = vec4(a_position, 1.0);	\n"
@@ -29,7 +29,7 @@ namespace kokoro
 
 			"@ PIXEL											\n"
 			"$input v_texcoord0									\n"
-			"#include </shaders/common.sh>						\n"
+			"#include <engine/shaders/common.sh>				\n"
 			"SAMPLER2D(s_texture, 0);							\n"
 			"void main()										\n"
 			"{													\n"
@@ -45,7 +45,7 @@ namespace kokoro
 
 			"@ PIXEL											\n"
 			"$input v_texcoord0									\n"
-			"#include </shaders/common.sh>						\n"
+			"#include <engine/shaders/common.sh>				\n"
 			"SAMPLER2D(s_texture, 0);							\n"
 			"void main()										\n"
 			"{													\n"
@@ -61,7 +61,7 @@ namespace kokoro
 
 			"@ PIXEL											\n"
 			"$input v_texcoord0									\n"
-			"#include </shaders/common.sh>						\n"
+			"#include <engine/shaders/common.sh>				\n"
 			"SAMPLER2D(s_texture, 0);							\n"
 			"void main()										\n"
 			"{													\n"
@@ -78,7 +78,7 @@ namespace kokoro
 			"@ VERTEX												\n"
 			"$input a_position, a_color0, a_texcoord0				\n"
 			"$output v_color0, v_texcoord0							\n"
-			"#include </shaders/common.sh>							\n"
+			"#include <engine/shaders/common.sh>					\n"
 			"void main()											\n"
 			"{														\n"
 			"\tgl_Position = mul(u_viewProj, vec4(a_position, 1.0));\n"
@@ -94,7 +94,7 @@ namespace kokoro
 
 			"@ PIXEL														\n"
 			"$input v_color0, v_texcoord0									\n"
-			"#include </shaders/common.sh>									\n"
+			"#include <engine/shaders/common.sh>							\n"
 			"SAMPLER2D(s_texture, 0);										\n"
 			"void main()													\n"
 			"{																\n"
@@ -113,7 +113,7 @@ namespace kokoro
 
 			"@ PIXEL													\n"
 			"$input v_texcoord0											\n"
-			"#include </shaders/common.sh>								\n"
+			"#include <engine/shaders/common.sh>						\n"
 			"SAMPLER2D(s_texture, 0);									\n"
 			"void main()												\n"
 			"{															\n"
@@ -133,7 +133,7 @@ namespace kokoro
 
 			"@ PIXEL																			\n"
 			"$input v_texcoord0																	\n"
-			"#include </shaders/common.sh>														\n"
+			"#include <engine/shaders/common.sh>												\n"
 			"SAMPLER2D(s_texture, 0);															\n"
 			"void main()																		\n"
 			"{																					\n"
@@ -153,7 +153,7 @@ namespace kokoro
 
 			"@ PIXEL												\n"
 			"$input v_texcoord0										\n"
-			"#include </shaders/common.sh>							\n"
+			"#include <engine/shaders/common.sh>					\n"
 			"SAMPLER2D(s_texture, 0);								\n"
 			"void main()											\n"
 			"{														\n"
@@ -169,7 +169,7 @@ namespace kokoro
 
 			"@ PIXEL												\n"
 			"$input v_texcoord0										\n"
-			"#include </shaders/common.sh>							\n"
+			"#include <engine/shaders/common.sh>					\n"
 			"SAMPLER2D(s_texture, 0);								\n"
 			"void main()											\n"
 			"{														\n"
@@ -188,7 +188,7 @@ namespace kokoro
 
 			"@ PIXEL															\n"
 			"$input v_texcoord0													\n"
-			"#include </shaders/common.sh>										\n"
+			"#include <engine/shaders/common.sh>								\n"
 			"SAMPLER2D(s_texture, 0);											\n"
 			"float hash(vec2 p) {												\n"
 			"\tp = fract(p * vec2(123.34, 456.21));								\n"
@@ -214,7 +214,7 @@ namespace kokoro
 
 			"@ PIXEL											\n"
 			"$input v_texcoord0									\n"
-			"#include </shaders/common.sh>						\n"
+			"#include <engine/shaders/common.sh>				\n"
 			"SAMPLER2D(s_texture, 0);							\n"
 			"void main()										\n"
 			"{													\n"
@@ -233,7 +233,7 @@ namespace kokoro
 
 			"@ PIXEL													\n"
 			"$input v_texcoord0											\n"
-			"#include </shaders/common.sh>								\n"
+			"#include <engine/shaders/common.sh>						\n"
 			"SAMPLER2D(s_texture, 0);									\n"
 			"void main()												\n"
 			"{															\n"
@@ -250,7 +250,7 @@ namespace kokoro
 
 			"@ PIXEL														\n"
 			"$input v_texcoord0												\n"
-			"#include </shaders/common.sh>									\n"
+			"#include <engine/shaders/common.sh>							\n"
 			"SAMPLER2D(s_texture, 0);										\n"
 			"void main()													\n"
 			"{																\n"
@@ -267,7 +267,7 @@ namespace kokoro
 
 			"@ PIXEL																\n"
 			"$input v_texcoord0														\n"
-			"#include </shaders/common.sh>											\n"
+			"#include <engine/shaders/common.sh>									\n"
 			"SAMPLER2D(s_texture, 0);												\n"
 			"void main()															\n"
 			"{																		\n"
@@ -292,7 +292,7 @@ namespace kokoro
 
 			"@ PIXEL												\n"
 			"$input v_texcoord0										\n"
-			"#include </shaders/common.sh>							\n"
+			"#include <engine/shaders/common.sh>					\n"
 			"SAMPLER2D(s_texture, 0);								\n"
 			"void main()											\n"
 			"{														\n"
@@ -307,7 +307,7 @@ namespace kokoro
 
 			"@ PIXEL												\n"
 			"$input v_texcoord0										\n"
-			"#include </shaders/common.sh>							\n"
+			"#include <engine/shaders/common.sh>					\n"
 			"SAMPLER2D(s_texture, 0);								\n"
 			"void main()											\n"
 			"{														\n"

@@ -2,6 +2,7 @@
 #include <engine/services/thread_service.hpp>
 #include <engine.hpp>
 #include <dlmalloc.h>
+#include <fmt.h>
 
 namespace kokoro
 {
@@ -324,6 +325,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	bool cvirtual_filesystem_service::init()
 	{
+		assign("engine", KOKORO_RESOURCES_DIR);
+		assign("/", PROJECT_RESOURCES_DIR);
 		return true;
 	}
 
