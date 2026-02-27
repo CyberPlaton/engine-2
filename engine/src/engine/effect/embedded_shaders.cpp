@@ -8,20 +8,20 @@ namespace kokoro
 		static std::unordered_map<const char*, const char*> S_SHADERS =
 		{
 			//- Default vertex shader used for postprocessing shaders
-					//------------------------------------------------------------------------------------------------------------------------
-					{"vs_postprocess",
+			//------------------------------------------------------------------------------------------------------------------------
+			{"vs_postprocess",
 
-					"@ VERTEX								\n"
-					"$input a_position, a_texcoord0			\n"
-					"$output v_texcoord0					\n"
-					"#include </shaders/common.sh>			\n"
-					"void main()							\n"
-					"{										\n"
-					"\tgl_Position = vec4(a_position, 1.0);	\n"
-					"\tv_texcoord0 = a_texcoord0;			\n"
-					"}										\n"
-					"@ !VERTEX								\n"
-					},
+			"@ VERTEX								\n"
+			"$input a_position, a_texcoord0			\n"
+			"$output v_texcoord0					\n"
+			"#include </shaders/common.sh>			\n"
+			"void main()							\n"
+			"{										\n"
+			"\tgl_Position = vec4(a_position, 1.0);	\n"
+			"\tv_texcoord0 = a_texcoord0;			\n"
+			"}										\n"
+			"@ !VERTEX								\n"
+			},
 
 			//- Default/Internal pixel shader used to draw final combined texture to backbuffer
 			//------------------------------------------------------------------------------------------------------------------------
