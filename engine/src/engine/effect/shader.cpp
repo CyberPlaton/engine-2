@@ -1,0 +1,231 @@
+#include <engine/effect/shader.hpp>
+#include <engine/services/virtual_filesystem_service.hpp>
+#include <engine.hpp>
+#include <../bgfx/tools/shaderc/shaderc.h>
+#include <fmt.h>
+
+namespace kokoro
+{
+	namespace
+	{
+		//- Write incoming data to a string form
+		//------------------------------------------------------------------------------------------------------------------------
+		class cstringwriter final : public bx::WriterI
+		{
+		public:
+			int32_t write(const void* data, int32_t size, bx::Error* error) override final
+			{
+				if (error->isOk())
+				{
+					const char* text = (const char*)data;
+					std::string string(text, size);
+					m_string += string;
+					return size;
+				}
+				return -1;
+			}
+
+			[[nodiscard]] inline std::string take() const { return std::move(m_string); }
+
+		private:
+			std::string m_string;
+		};
+
+		//- Write incoming data to log. Convenience class to use with thirdparty libraries,
+		//- such as bx, bgfx etc
+		//------------------------------------------------------------------------------------------------------------------------
+		class clogwriter final : public bx::WriterI
+		{
+		public:
+			int32_t write(const void* data, int32_t size, bx::Error* error) override final
+			{
+				if (error->isOk())
+				{
+					printf(fmt::format("[Bgfx Shaderc]{}\n", (const char*)data).data());
+					return size;
+				}
+				return -1;
+			}
+		};
+
+		//------------------------------------------------------------------------------------------------------------------------
+		bgfx::Options to_bgfx_options(const scompile_options& options)
+		{
+			bgfx::Options out;
+
+			switch (options.m_type)
+			{
+			default:
+			case scompile_options::shader_type_none: return {};
+			case scompile_options::shader_type_vertex:
+			{
+				out.shaderType = 'v';
+				break;
+			}
+			case scompile_options::shader_type_pixel:
+			{
+				out.shaderType = 'f';
+				break;
+			}
+			case scompile_options::shader_type_compute:
+			{
+				out.shaderType = 'c';
+				break;
+			}
+			}
+
+			out.platform = options.m_platform;
+			out.profile = options.m_profile;
+			out.debugInformation = !!(options.m_flags & scompile_options::flag_debug);
+			out.avoidFlowControl = !!(options.m_flags & scompile_options::flag_avoid_flow_control);
+			out.noPreshader = !!(options.m_flags & scompile_options::flag_no_preshader);
+			out.partialPrecision = !!(options.m_flags & scompile_options::flag_partial_precision);
+			out.preferFlowControl = !!(options.m_flags & scompile_options::flag_prefer_flow_control);
+			out.backwardsCompatibility = !!(options.m_flags & scompile_options::flag_backward_compatible);
+			out.warningsAreErrors = !!(options.m_flags & scompile_options::flag_warnings_are_errors);
+			out.keepIntermediate = !!(options.m_flags & scompile_options::flag_keep_intermediate);
+			out.optimize = options.m_optimization != scompile_options::optimization_level_none;
+			out.optimizationLevel = (unsigned)options.m_optimization;
+
+			for (const auto& include : options.m_include_dirs)
+			{
+				out.includeDirs.emplace_back(include.data());
+			}
+			for (const auto& define : options.m_defines)
+			{
+				out.defines.emplace_back(define.data());
+			}
+			for (const auto& dep : options.m_deps)
+			{
+				out.dependencies.emplace_back(dep.data());
+			}
+
+			return out;
+		}
+
+	} //- unnamed
+
+	//------------------------------------------------------------------------------------------------------------------------
+	std::string scompile_options::shader_profile()
+	{
+#if PLATFORM_WINDOWS
+		static constexpr const char* C_PROFILE = "s_5_0";
+#elif PLATFORM_LINUX || PLATFORM_MACOSX
+		static constexpr const char* C_PROFILE = "spirv";
+#endif
+		return C_PROFILE;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	std::string scompile_options::shader_varying_default()
+	{
+		static constexpr const char* C_VARYING =
+			"vec4 v_color0    : COLOR0    = vec4(1.0, 0.0, 0.0, 1.0);\n"
+			"vec2 v_texcoord0 : TEXCOORD0 = vec2(0.0, 0.0);\n"
+			"vec3 a_position  : POSITION;\n"
+			"vec4 a_color0    : COLOR0;\n"
+			"vec2 a_texcoord0 : TEXCOORD0;\n"
+			"\n\0";
+
+		return C_VARYING;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	std::string scompile_options::shader_platform()
+	{
+#if PLATFORM_WINDOWS
+		static constexpr const char* C_PLATFORM = "windows";
+#elif PLATFORM_LINUX
+		static constexpr const char* C_PLATFORM = "linux";
+#elif PLATFORM_MACOSX
+		static constexpr const char* C_PLATFORM = "osx";
+#endif
+		return C_PLATFORM;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	core::memory_ref_t compile_shader_from_string(const char* code, const scompile_options& options)
+	{
+		auto bgfx_options = to_bgfx_options(options);
+		filepath_t temp_path;
+
+		//- Save code to a temporary file for compilation as direct compiling from string is not supported
+		{
+			auto& vfs = instance().service<cvirtual_filesystem_service>();
+
+			temp_path = fmt::format("{}{}.sc",
+				vfs.basepath(".temp"),
+				filepath_t(options.m_name).stem().generic_string());
+
+			//- Recreate the file and write shader data to it
+			if (auto file = vfs.open(temp_path, file_options_write | file_options_text | file_options_truncate); file)
+			{
+				file->write(code, static_cast<unsigned>(strlen(code)));
+				file->close();
+			}
+			else
+			{
+				return nullptr;
+			}
+		}
+
+		clogwriter logwriter;
+		cstringwriter stringwriter;
+		core::memory_ref_t memory{};
+		bgfx_options.inputFilePath = temp_path.generic_string();
+
+		if (bgfx::compileShader(options.m_varying.data(), nullptr, (char*)code, static_cast<unsigned>(strlen(code)),
+			false, bgfx_options, &stringwriter, &logwriter))
+		{
+			std::string shader(stringwriter.take());
+			memory = std::make_shared<core::cmemory>((char*)shader.c_str(), shader.size());
+		}
+
+		//- Erase the temporary file used for compilation
+		{
+			std::error_code err;
+			std::filesystem::remove_all(temp_path, err);
+		}
+
+		return memory;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	core::memory_ref_t compile_shader_from_string(const char* code, const char* name, scompile_options::shader_type type)
+	{
+		scompile_options options;
+		options.m_name = name;
+		options.m_type = type;
+		options.m_include_dirs.push_back("shaders");
+		return compile_shader_from_string(code, options);
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	bgfx::ProgramHandle create_compute_program(core::memory_ref_t cs)
+	{
+		const auto compute = bgfx::createShader(bgfx::makeRef(cs->data(), cs->size()));
+
+		if (bgfx::isValid(compute))
+		{
+			return bgfx::createProgram(compute);
+		}
+		return { bgfx::kInvalidHandle };
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	bgfx::ProgramHandle create_program(core::memory_ref_t vs, core::memory_ref_t ps)
+	{
+		const auto vertex = bgfx::createShader(bgfx::makeRef(vs->data(), vs->size()));
+		const auto pixel = bgfx::createShader(bgfx::makeRef(ps->data(), ps->size()));
+
+		if (bgfx::isValid(vertex) && bgfx::isValid(pixel))
+		{
+			if (const auto handle = bgfx::createProgram(vertex, pixel); bgfx::isValid(handle))
+			{
+				return handle;
+			}
+		}
+		return { bgfx::kInvalidHandle };
+	}
+
+} //- kokoro

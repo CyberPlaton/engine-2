@@ -103,7 +103,6 @@ namespace kokoro
 		window.m_window = glfwCreateWindow(static_cast<int>(w), static_cast<int>(h), "Main Window", nullptr, nullptr);
 		window.m_width = w;
 		window.m_height = h;
-		window.m_framebuffer = bgfx::createFrameBuffer(native_window_handle(window.m_window), w, h);
 
 		glfwSetCursor(window.m_window, glfwCreateStandardCursor(GLFW_ARROW_CURSOR));
 		glfwSetKeyCallback(window.m_window, glfw_key_callback);
