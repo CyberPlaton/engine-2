@@ -4,6 +4,7 @@
 #include <engine/effect/effect.hpp>
 #include <engine/effect/embedded_shaders.hpp>
 #include <engine/effect/shader.hpp>
+#include <engine/math/mat4.hpp>
 #include <engine.hpp>
 #include <bx.h>
 
@@ -12,6 +13,7 @@ namespace kokoro
 	namespace
 	{
 		uint16_t width = -1, height = -1;
+		math::smat4x4 mat4id;
 
 	} //- unnamed
 
@@ -41,6 +43,7 @@ namespace kokoro
 
 		width = window.m_width;
 		height = window.m_height;
+		bx::mtxIdentity(mat4id.value);
 
 		//- Create programs required for main loop
 		{
@@ -131,7 +134,7 @@ namespace kokoro
 		bgfx::touch(C_GEOMETRY_PASS_ID);
 		bgfx::setViewFrameBuffer(C_GEOMETRY_PASS_ID, m_geometry_framebuffer);
 		bgfx::setViewClear(C_GEOMETRY_PASS_ID, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x555555FF);
-		bgfx::setViewTransform(C_GEOMETRY_PASS_ID, mat4id, mat4id);
+		bgfx::setViewTransform(C_GEOMETRY_PASS_ID, mat4id.value, mat4id.value);
 		bgfx::setViewRect(C_GEOMETRY_PASS_ID, 0, 0, width, height);
 
 		//- Begin ImGui if required
@@ -142,7 +145,7 @@ namespace kokoro
 	{
 		bgfx::setViewFrameBuffer(C_BACKBUFFER_PASS_ID, BGFX_INVALID_HANDLE);
 		bgfx::setViewClear(C_BACKBUFFER_PASS_ID, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030FF);
-		bgfx::setViewTransform(C_BACKBUFFER_PASS_ID, mat4id, mat4id);
+		bgfx::setViewTransform(C_BACKBUFFER_PASS_ID, mat4id.value, mat4id.value);
 		bgfx::setViewRect(C_BACKBUFFER_PASS_ID, 0, 0, width, height);
 
 		//- Set the accumulated framebuffer texture for rendering to screen
