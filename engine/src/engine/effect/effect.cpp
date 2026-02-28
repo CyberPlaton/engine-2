@@ -17,32 +17,6 @@ namespace kokoro
 		core::cmutex instance_mutex;
 		core::cmutex snapshot_mutex;
 
-		//------------------------------------------------------------------------------------------------------------------------
-		std::string default_include_handler(const char* filepath)
-		{
-			if (filepath_exists(filepath))
-			{
-				filepath_t path(filepath);
-				auto& vfs = instance().service<cvirtual_filesystem_service>();
-
-				if (auto file = vfs.open(path, file_options_read | file_options_text); file)
-				{
-					auto future = file->read_async();
-
-					while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
-					file->close();
-
-					auto mem = future.get();
-
-					if (mem && !mem->empty())
-					{
-						return std::string(mem->data(), mem->size());
-					}
-				}
-			}
-			return {};
-		}
-
 	} //- unnamed
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -87,7 +61,7 @@ namespace kokoro
 
 					if (auto mem = load_file(fx_filepath); mem && !mem->empty())
 					{
-						ceffect_parser parser(mem->data(), &default_include_handler);
+						ceffect_parser parser(mem->data());
 						const auto output = parser.parse();
 
 						if (!output.m_vs.empty() && !output.m_ps.empty())
@@ -132,7 +106,7 @@ namespace kokoro
 					{
 						if (auto mem = load_file(filepath); mem && !mem->empty())
 						{
-							ceffect_parser parser(mem->data(), &default_include_handler);
+							ceffect_parser parser(mem->data());
 							const auto output = parser.parse();
 
 							if (!output.m_vs.empty())
@@ -169,7 +143,7 @@ namespace kokoro
 					{
 						if (auto mem = load_file(filepath); mem && !mem->empty())
 						{
-							ceffect_parser parser(mem->data(), &default_include_handler);
+							ceffect_parser parser(mem->data());
 							const auto output = parser.parse();
 
 							if (!output.m_ps.empty())

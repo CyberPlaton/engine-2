@@ -18,7 +18,7 @@ namespace kokoro
 		file_options_none		= 0,
 		file_options_read		= 1 << 0,
 		file_options_write		= 1 << 1,
-		file_options_read_write	= file_mode_read | file_mode_write,
+		file_options_read_write	= file_options_read | file_options_write,
 		file_options_append		= 1 << 3,
 		file_options_truncate	= 1 << 4,
 		file_options_text		= 1 << 5,	//- For loading JSON data and everything that is text

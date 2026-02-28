@@ -1,4 +1,6 @@
 #include <engine/effect/effect_parser.hpp>
+#include <engine/services/virtual_filesystem_service.hpp>
+#include <engine.hpp>
 #include <fmt.h>s
 #include <sstream>
 
@@ -6,6 +8,32 @@ namespace kokoro
 {
 	namespace
 	{
+		//------------------------------------------------------------------------------------------------------------------------
+		std::string default_include_handler(const char* filepath)
+		{
+			if (filepath_exists(filepath))
+			{
+				filepath_t path(filepath);
+				auto& vfs = instance().service<cvirtual_filesystem_service>();
+
+				if (auto file = vfs.open(path, file_options_read | file_options_text); file)
+				{
+					auto future = file->read_async();
+
+					while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
+					file->close();
+
+					auto mem = future.get();
+
+					if (mem && !mem->empty())
+					{
+						return std::string(mem->data(), mem->size());
+					}
+				}
+			}
+			return {};
+		}
+
 		//------------------------------------------------------------------------------------------------------------------------
 		void split(const std::string& string, char delimiter, std::vector<std::string>& storage)
 		{
@@ -70,7 +98,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	ceffect_parser::ceffect_parser(const char* source, include_handler_t handler /*= nullptr*/) :
 		m_source(source),
-		m_handler(handler)
+		m_handler(handler ? handler : default_include_handler)
 	{
 	}
 
