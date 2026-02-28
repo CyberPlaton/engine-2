@@ -1,11 +1,12 @@
 #include <engine/effect/embedded_shaders.hpp>
 #include <unordered_map>
+#include <string_view>
 
 namespace kokoro
 {
 	namespace
 	{
-		static std::unordered_map<const char*, const char*> S_SHADERS =
+		const std::unordered_map<std::string_view, std::string_view> S_SHADERS =
 		{
 			//- Default vertex shader used for postprocessing shaders
 			//------------------------------------------------------------------------------------------------------------------------
@@ -336,7 +337,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	const char* sembedded_shaders::get(const char* name)
 	{
-		return S_SHADERS.at(name);
+		return S_SHADERS.at(name).data();
 	}
 
 } //- kokoro

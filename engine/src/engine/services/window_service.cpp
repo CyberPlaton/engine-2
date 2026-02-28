@@ -71,6 +71,7 @@ namespace kokoro
 		}
 		/*glfwSetErrorCallback(glfw_error_callback);*/
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		create(1024, 960);
 		return true;
 	}
 
