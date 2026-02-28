@@ -5,6 +5,7 @@
 #include <engine/effect/embedded_shaders.hpp>
 #include <engine/effect/shader.hpp>
 #include <engine.hpp>
+#include <bx.h>
 
 namespace kokoro
 {

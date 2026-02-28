@@ -4,11 +4,18 @@
 
 namespace kokoro
 {
-	inline static constexpr uint16_t C_BACKBUFFER_PASS_ID	= 0;
-	inline static constexpr uint16_t C_GEOMETRY_PASS_ID		= 1;
-	inline static constexpr uint16_t C_POSTPROCESS_PASS_ID	= C_GEOMETRY_PASS_ID + 1;
-	inline static constexpr uint16_t C_MERGE_PASS_ID		= 254;
-	inline static constexpr uint16_t C_IMGUI_PASS_ID		= 255;
+	inline static constexpr uint16_t C_BACKBUFFER_PASS_ID		= 0;
+	inline static constexpr uint16_t C_GEOMETRY_PASS_ID			= 1;
+	inline static constexpr uint16_t C_POSTPROCESS_PASS_ID		= C_GEOMETRY_PASS_ID + 1;
+	inline static constexpr uint16_t C_MERGE_PASS_ID			= 254;
+	inline static constexpr uint16_t C_IMGUI_PASS_ID			= 255;
+
+	//- Right handed coordinate system means,
+		//- X goes left-to-right,
+		//- Y goes bottom-to-top,
+		//- Z goes screen-to-eye (meaning the direction we are looking at is the negative Z-axis),
+		//- for visual image check out https://github.com/bevyengine/bevy/discussions/10488
+	inline static constexpr bx::Handedness::Enum C_HANDEDNESS	= bx::Handedness::Right;
 
 	//------------------------------------------------------------------------------------------------------------------------
 	class crender_service final : public iservice
