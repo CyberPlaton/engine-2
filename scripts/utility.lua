@@ -43,7 +43,7 @@ function set_basic_defines()
 	externalanglebrackets "On"
 
 	if PLATFORM == "windows" then
-		defines { "BGFX_CONFIG_RENDERER_DIRECT3D11", "PLATFORM_WINDOWS=1"}
+		defines { "BGFX_CONFIG_RENDERER_DIRECT3D11", "PLATFORM_WINDOWS=1", "NODRAWTEXT", "WIN32_LEAN_AND_MEAN", "NOMINMAX"}
 		buildoptions{"/bigobj"}
 		editandcontinue "Off"
 		filter {"action:vs*"}

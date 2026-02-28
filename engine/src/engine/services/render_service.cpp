@@ -1,12 +1,13 @@
 #include <engine/services/render_service.hpp>
+#include <bx.h>
 #include <engine/services/window_service.hpp>
 #include <engine/effect/effect_parser.hpp>
 #include <engine/effect/effect.hpp>
 #include <engine/effect/embedded_shaders.hpp>
 #include <engine/effect/shader.hpp>
+#include <engine/render/vertices.hpp>
 #include <engine/math/mat4.hpp>
 #include <engine.hpp>
-#include <bx.h>
 
 namespace kokoro
 {
@@ -159,6 +160,63 @@ namespace kokoro
 
 		//- Kicking render thread to process submitted geometry
 		bgfx::frame();
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	void crender_service::submit_screen_quad(float scalex /*= 1.0f*/, float scaley /*= 1.0f*/)
+	{
+		if (!bgfx::isValid(spos_uv_vertex::S_HANDLE))
+		{
+			spos_uv_vertex::init();
+		}
+
+		if (3 == bgfx::getAvailTransientVertexBuffer(3, spos_uv_vertex::S_LAYOUT))
+		{
+			bgfx::TransientVertexBuffer vb;
+			bgfx::allocTransientVertexBuffer(&vb, 3, spos_uv_vertex::S_LAYOUT);
+			auto* vertex = (spos_uv_vertex*)vb.data;
+
+			const auto _originBottomLeft = bgfx::getCaps()->originBottomLeft;
+			const float zz = 0.0f;
+
+			const float minx = -scalex;
+			const float maxx = scalex;
+			const float miny = -scaley;
+			const float maxy = scaley;
+
+			const float minu = -1.0f;
+			const float maxu = 1.0f;
+
+			float minv = 0.0f;
+			float maxv = 2.0f;
+
+			if (_originBottomLeft)
+			{
+				std::swap(minv, maxv);
+				minv -= 1.0f;
+				maxv -= 1.0f;
+			}
+
+			vertex[0].m_x = -1.0f;
+			vertex[0].m_y = -1.0f;
+			vertex[0].m_z = 0.0f;
+			vertex[0].m_u = 0.0f;
+			vertex[0].m_v = 0.0f;
+
+			vertex[1].m_x = 3.0f;
+			vertex[1].m_y = -1.0f;
+			vertex[1].m_z = 0.0f;
+			vertex[1].m_u = 2.0f;
+			vertex[1].m_v = 0.0f;
+
+			vertex[2].m_x = -1.0f;
+			vertex[2].m_y = 3.0f;
+			vertex[2].m_z = 0.0f;
+			vertex[2].m_u = 0.0f;
+			vertex[2].m_v = 2.0f;
+
+			bgfx::setVertexBuffer(0, &vb);
+		}
 	}
 
 } //- kokoro

@@ -1,7 +1,7 @@
 #include <engine/effect/effect_parser.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <engine.hpp>
-#include <fmt.h>s
+#include <fmt.h>
 #include <sstream>
 
 namespace kokoro

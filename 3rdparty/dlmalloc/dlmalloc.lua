@@ -1,12 +1,17 @@
 include (path.join(SCRIPTS_DIR, "utility.lua"))
 
 function dlmalloc()
-	add_target_library("dlmalloc",
+	add_target_static_library("dlmalloc",
 					{},
 					{},
 					{},
 					{},
-					true,
-					"c++")
+					"c++",
+					{},
+					{},
+					{},
+					false,
+					false)
+	files{ "dlmalloc/malloc.c" }
 end
 dlmalloc()

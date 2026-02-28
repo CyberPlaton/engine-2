@@ -11,10 +11,10 @@ namespace kokoro
 	inline static constexpr uint16_t C_IMGUI_PASS_ID			= 255;
 
 	//- Right handed coordinate system means,
-		//- X goes left-to-right,
-		//- Y goes bottom-to-top,
-		//- Z goes screen-to-eye (meaning the direction we are looking at is the negative Z-axis),
-		//- for visual image check out https://github.com/bevyengine/bevy/discussions/10488
+	//- X goes left-to-right,
+	//- Y goes bottom-to-top,
+	//- Z goes screen-to-eye (meaning the direction we are looking at is the negative Z-axis),
+	//- for visual image check out https://github.com/bevyengine/bevy/discussions/10488
 	inline static constexpr bx::Handedness::Enum C_HANDEDNESS	= bx::Handedness::Right;
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -31,6 +31,7 @@ namespace kokoro
 
 		void		begin_frame();
 		void		end_frame();
+		void		submit_screen_quad(float scalex = 1.0f, float scaley = 1.0f);
 
 	private:
 		bgfx::FrameBufferHandle m_geometry_framebuffer	= BGFX_INVALID_HANDLE;

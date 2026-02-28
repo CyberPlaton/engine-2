@@ -2,7 +2,7 @@
 #include <engine/effect/effect_parser.hpp>
 #include <engine/effect/shader.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
-#include <engine/io/io.hpp>
+#include <core/io.hpp>
 #include <core/mutex.hpp>
 #include <registrator.hpp>
 #include <engine.hpp>
