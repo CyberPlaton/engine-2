@@ -4,7 +4,7 @@
 #include <string_view>
 
 
-namespace kokoro
+namespace kokoro::core
 {
 	constexpr std::string_view C_OBJECT_TYPE_NAME	= "__type__";
 	constexpr std::string_view C_MAP_KEY_NAME		= "__key__";
@@ -17,4 +17,4 @@ namespace kokoro
 	[[nodiscard]] nlohmann::json	to_json_object(rttr::instance object);
 	void							to_json_object(rttr::instance object, nlohmann::json& json);
 
-} //- kokoro
+} //- kokoro::core

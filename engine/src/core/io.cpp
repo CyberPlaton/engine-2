@@ -1,6 +1,6 @@
 #include <core/io.hpp>
 
-namespace kokoro
+namespace kokoro::core
 {
 	bool write_variant(const rttr::variant& var, nlohmann::json& json);
 	rttr::variant from_json_recursively(rttr::type expected, const nlohmann::json& json);
@@ -430,4 +430,4 @@ namespace kokoro
 		}
 	}
 
-} //- kokoro
+} //- kokoro::::core
