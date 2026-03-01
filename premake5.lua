@@ -19,10 +19,11 @@ THIRDPARTY = {"bgfx",
 			  "rttr",
 			  "fmt",
 			  "dlmalloc",
-			  "taskflow"
+			  "taskflow",
+			  "spdlog"
 			  }
 
-ENGINE_THIRDPARTY_LIBRARIES 	= {"flecs", "rttr", "bgfx", "bimg", "bx", "box2d", "glfw", "dlmalloc"}
+ENGINE_THIRDPARTY_LIBRARIES 	= {"flecs", "rttr", "bgfx", "bimg", "bx", "box2d", "glfw", "dlmalloc", "spdlog"}
 ENGINE_THIRDPARTY_HEADERONLY 	= {"nlohmann", "fmt", "taskflow"}
 ENGINE_ADDITIONAL_INCLUDES 		= {"../../3rdparty/rttr/rttr/src", "../../3rdparty/asio/include/asio/asio/include"}
 PLUGINS_THIRDPARTY_LIBRARIES 	= {}

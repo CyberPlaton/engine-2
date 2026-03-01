@@ -4,6 +4,7 @@
 #include <engine/services/render_service.hpp>
 #include <engine/services/thread_service.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
+#include <engine/services/log_service.hpp>
 #include <engine.hpp>
 
 namespace kokoro::entry
@@ -13,7 +14,8 @@ namespace kokoro::entry
 	{
 		auto& e = instance();
 
-		e.new_service<cwindow_service>()
+		e.new_service<clog_service>()
+			.new_service<cwindow_service>()
 			.new_service<cinput_service>()
 			.new_service<cthread_service>()
 			.new_service<cvirtual_filesystem_service>()
