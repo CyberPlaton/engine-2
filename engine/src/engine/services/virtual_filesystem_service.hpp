@@ -10,8 +10,6 @@ namespace kokoro
 {
 	using filepath_t = std::filesystem::path;
 
-	bool	filepath_exists(std::string_view filepath);		//- Query whether file or folder at given path exists
-
 	//------------------------------------------------------------------------------------------------------------------------
 	enum file_options : uint8_t
 	{
@@ -84,6 +82,8 @@ namespace kokoro
 		void		shutdown() override final;
 		void		update(float dt) override final;
 
+		bool		exists(const filepath_t& filepath) const;
+		auto		resolve(const filepath_t& filepath) const -> std::pair<bool, filepath_t>;
 		auto		assign(std::string_view alias, std::string_view basepath) -> cvirtual_filesystem_service&;
 		cfile*		open(const filepath_t& filepath, int file_mode);
 		std::string	basepath(std::string_view alias) const;

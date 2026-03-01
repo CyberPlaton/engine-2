@@ -60,14 +60,6 @@ namespace kokoro
 	} //- unnamed
 
 	//------------------------------------------------------------------------------------------------------------------------
-	bool filepath_exists(std::string_view filepath)
-	{
-		std::error_code err;
-		const auto e = std::filesystem::directory_entry(filepath.data(), err);
-		return e.exists();
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
 	cfile::cfile(const filepath_t& filepath) :
 		m_filepath(filepath),
 		m_file(nullptr),
@@ -327,6 +319,12 @@ namespace kokoro
 	{
 		assign("engine", KOKORO_RESOURCES_DIR);
 		assign("/", PROJECT_RESOURCES_DIR);
+
+		auto working_dir = std::filesystem::current_path();
+		working_dir /= ".temp";
+		std::filesystem::create_directory(working_dir);
+		assign(".temp", working_dir.generic_string());
+
 		return true;
 	}
 
@@ -346,6 +344,33 @@ namespace kokoro
 	void cvirtual_filesystem_service::update(float dt)
 	{
 
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	bool cvirtual_filesystem_service::exists(const filepath_t& filepath) const
+	{
+		std::error_code err;
+		const auto e = std::filesystem::directory_entry(filepath, err);
+		return e.exists();
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	auto cvirtual_filesystem_service::resolve(const filepath_t& filepath) const -> std::pair<bool, filepath_t>
+	{
+		if (filepath.is_relative())
+		{
+			const auto filepath_string = filepath.generic_string();
+
+			for (const auto& [alias, basepath] : m_aliases)
+			{
+				if (starts_with(filepath_string, alias))
+				{
+					return { true, filepath_t{ replace(filepath_string, alias, basepath) } };
+				}
+			}
+		}
+
+		return { exists(filepath), filepath };
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -382,7 +407,7 @@ namespace kokoro
 			{
 				if (starts_with(filepath_string, alias))
 				{
-					path = filepath_t{ replace(filepath_string, alias, basepath) };
+					path = filepath_t{ replace(filepath_string, alias, basepath)};
 					break;
 				}
 			}

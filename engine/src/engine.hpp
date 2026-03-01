@@ -2,6 +2,7 @@
 #include <engine/iservice.hpp>
 #include <unordered_map>
 #include <typeinfo>
+#include <memory>
 #include <atomic>
 
 namespace kokoro
@@ -27,7 +28,8 @@ namespace kokoro
 		T&			service() const;
 
 	private:
-		std::unordered_map<uint64_t, iservice*> m_services;
+		std::unordered_map<uint64_t, uint64_t> m_services_mapping;
+		std::vector<std::unique_ptr<iservice>> m_services;
 		std::atomic_bool m_running = false;
 	};
 
@@ -35,7 +37,11 @@ namespace kokoro
 	template<typename T, typename... ARGS>
 	cengine& cengine::new_service(ARGS... args)
 	{
-		m_services[typeid(T).hash_code()] = new T(std::forward<ARGS>(args)...);
+		const auto idx = m_services.size();
+		m_services_mapping[typeid(T).hash_code()] = idx;
+		m_services.push_back(std::move(
+			std::make_unique<T>(std::forward<ARGS>(args)...)
+		));
 		return *this;
 	}
 
@@ -43,7 +49,7 @@ namespace kokoro
 	template<typename T>
 	T& cengine::service() const
 	{
-		return *reinterpret_cast<T*>(m_services.at(typeid(T).hash_code()));
+		return *reinterpret_cast<T*>(m_services[m_services_mapping.at(typeid(T).hash_code())].get());
 	}
 
 	cengine& instance();

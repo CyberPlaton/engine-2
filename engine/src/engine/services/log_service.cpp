@@ -11,15 +11,22 @@ namespace kokoro
 		public:
 			cspdlog_writer()
 			{
+#if DEBUG || HYBRID
+				const char* name;
+#if PLATFORM_WINDOWS
+				AllocConsole();
+#endif
 #if DEBUG
-				spdlog::flush_every(std::chrono::seconds(1));
-				m_logger = spdlog::stdout_color_mt("debug");
+				name = "Debug";
 #elif HYBRID
+				name = "Hybrid";
+#endif
 				spdlog::flush_every(std::chrono::seconds(1));
-				m_logger = spdlog::stdout_color_mt("hybrid");
+				m_logger = spdlog::stdout_color_mt(name);
 #elif RELEASE
+				name = "Release";
 				spdlog::flush_every(std::chrono::seconds(5));
-				m_logger = spdlog::basic_logger_mt("release", "Log.log");
+				m_logger = spdlog::basic_logger_mt(name, "Log.log");
 #endif
 			}
 			~cspdlog_writer() = default;

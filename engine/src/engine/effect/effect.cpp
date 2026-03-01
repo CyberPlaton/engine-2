@@ -2,10 +2,12 @@
 #include <engine/effect/effect_parser.hpp>
 #include <engine/effect/shader.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
+#include <engine/services/log_service.hpp>
 #include <core/io.hpp>
 #include <core/mutex.hpp>
 #include <registrator.hpp>
 #include <engine.hpp>
+#include <fmt.h>
 #include <unordered_map>
 
 namespace kokoro
@@ -50,41 +52,48 @@ namespace kokoro
 			//- or just a regular situation with one shader per file.
 			if (snapshot.m_vs.m_filepath_or_name == snapshot.m_ps.m_filepath_or_name)
 			{
-				if (!filepath_exists(snapshot.m_vs.m_filepath_or_name))
+				filepath_t fx_filepath = snapshot.m_vs.m_filepath_or_name;
+
+				if (!vfs.exists(fx_filepath))
 				{
 					//- Try resolving filepath using virtual file system
+					if (const auto [result, p] = vfs.resolve(fx_filepath); result)
+					{
+						fx_filepath = p;
+					}
+					else
+					{
+						instance().service<clog_service>().err(fmt::format("Could not find include file at '{}'",
+							snapshot.m_vs.m_filepath_or_name).c_str());
+						return nullptr;
+					}
 				}
 
-				if (filepath_exists(snapshot.m_vs.m_filepath_or_name))
+				if (auto mem = load_file(fx_filepath); mem && !mem->empty())
 				{
-					filepath_t fx_filepath = snapshot.m_vs.m_filepath_or_name;
+					ceffect_parser parser(mem->data());
+					const auto output = parser.parse();
 
-					if (auto mem = load_file(fx_filepath); mem && !mem->empty())
+					if (!output.m_vs.empty() && !output.m_ps.empty())
 					{
-						ceffect_parser parser(mem->data());
-						const auto output = parser.parse();
-
-						if (!output.m_vs.empty() && !output.m_ps.empty())
+						//- Load vertex shader
 						{
-							//- Load vertex shader
-							{
-								scompile_options options;
-								options.m_name = fx_filepath.filename().generic_string();
-								options.m_type = scompile_options::shader_type_vertex;
-								options.m_include_dirs.push_back(fx_filepath.parent_path().generic_string());
-								effect.m_vs.m_data = compile_shader_from_string(output.m_vs.c_str(), options);
-								effect.m_vs.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_vs.m_data->data(), effect.m_vs.m_data->size()));
-							}
+							scompile_options options;
+							options.m_name = fx_filepath.filename().generic_string();
+							options.m_type = scompile_options::shader_type_vertex;
+							options.m_include_dirs.push_back(fx_filepath.parent_path().generic_string());
+							effect.m_vs.m_data = compile_shader_from_string(output.m_vs.c_str(), options);
+							effect.m_vs.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_vs.m_data->data(), effect.m_vs.m_data->size()));
+						}
 
-							//- Load pixel shader
-							{
-								scompile_options options;
-								options.m_name = fx_filepath.filename().generic_string();
-								options.m_type = scompile_options::shader_type_pixel;
-								options.m_include_dirs.push_back(fx_filepath.parent_path().generic_string());
-								effect.m_ps.m_data = compile_shader_from_string(output.m_ps.c_str(), options);
-								effect.m_ps.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_ps.m_data->data(), effect.m_ps.m_data->size()));
-							}
+						//- Load pixel shader
+						{
+							scompile_options options;
+							options.m_name = fx_filepath.filename().generic_string();
+							options.m_type = scompile_options::shader_type_pixel;
+							options.m_include_dirs.push_back(fx_filepath.parent_path().generic_string());
+							effect.m_ps.m_data = compile_shader_from_string(output.m_ps.c_str(), options);
+							effect.m_ps.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_ps.m_data->data(), effect.m_ps.m_data->size()));
 						}
 					}
 				}
@@ -204,33 +213,44 @@ namespace kokoro
 			return &it->second;
 		}
 
-		if (filepath_exists(filepath))
+		auto& vfs = instance().service<cvirtual_filesystem_service>();
+		filepath_t path(filepath);
+
+		if (!vfs.exists(path))
 		{
-			filepath_t path(filepath);
-
-			auto& vfs = instance().service<cvirtual_filesystem_service>();
-
-			if (auto file = vfs.open(path, file_options_read | file_options_text); file)
+			//- Try resolving filepath using virtual file system
+			if (const auto [result, p] = vfs.resolve(path); result)
 			{
-				auto future = file->read_async();
+				path = p;
+			}
+			else
+			{
+				instance().service<clog_service>().err(fmt::format("Could not find include file at '{}'",
+					filepath).c_str());
+				return nullptr;
+			}
+		}
 
-				while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
-				file->close();
+		if (auto file = vfs.open(path, file_options_read | file_options_text); file)
+		{
+			auto future = file->read_async();
 
-				auto mem = future.get();
+			while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
+			file->close();
 
-				if (mem && !mem->empty())
+			auto mem = future.get();
+
+			if (mem && !mem->empty())
+			{
+				if (auto var = kokoro::from_json_blob(rttr::type::get<seffect_snapshot>(), mem->data(), mem->size()); var.is_valid())
 				{
-					if (auto var = kokoro::from_json_blob(rttr::type::get<seffect_snapshot>(), mem->data(), mem->size()); var.is_valid())
-					{
-						core::cscoped_mutex m(snapshot_mutex);
+					core::cscoped_mutex m(snapshot_mutex);
 
-						if (auto [it, result] = snapshot_cache.emplace(std::piecewise_construct,
-							std::forward_as_tuple(filepath),
-							std::forward_as_tuple(std::move(var.get_value<seffect_snapshot>()))); result)
-						{
-							return &it->second;
-						}
+					if (auto [it, result] = snapshot_cache.emplace(std::piecewise_construct,
+						std::forward_as_tuple(filepath),
+						std::forward_as_tuple(std::move(var.get_value<seffect_snapshot>()))); result)
+					{
+						return &it->second;
 					}
 				}
 			}

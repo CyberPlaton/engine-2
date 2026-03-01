@@ -1,5 +1,6 @@
 #include <engine/effect/effect_parser.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
+#include <engine/services/log_service.hpp>
 #include <engine.hpp>
 #include <fmt.h>
 #include <sstream>
@@ -11,26 +12,37 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		std::string default_include_handler(const char* filepath)
 		{
-			if (filepath_exists(filepath))
+			filepath_t path = filepath;
+			auto& vfs = instance().service<cvirtual_filesystem_service>();
+
+			if (!vfs.exists(path))
 			{
-				filepath_t path(filepath);
-				auto& vfs = instance().service<cvirtual_filesystem_service>();
-
-				if (auto file = vfs.open(path, file_options_read | file_options_text); file)
+				if (const auto [result, p] = vfs.resolve(path); result)
 				{
-					auto future = file->read_async();
-
-					while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
-					file->close();
-
-					auto mem = future.get();
-
-					if (mem && !mem->empty())
-					{
-						return std::string(mem->data(), mem->size());
-					}
+					path = p;
+				}
+				else
+				{
+					instance().service<clog_service>().err(fmt::format("Could not find include file at '{}'", filepath).c_str());
+					return {};
 				}
 			}
+
+			if (auto file = vfs.open(path, file_options_read | file_options_text); file)
+			{
+				auto future = file->read_async();
+
+				while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
+				file->close();
+
+				auto mem = future.get();
+
+				if (mem && !mem->empty())
+				{
+					return std::string(mem->data(), mem->size());
+				}
+			}
+
 			return {};
 		}
 
@@ -225,18 +237,24 @@ namespace kokoro
 		{
 		case scope_compute:
 			m_cs.insert(m_cs.end(), start, end);
+			m_cs.push_back('\n');
 			break;
 		case scope_vertex:
 			m_vs.insert(m_vs.end(), start, end);
+			m_vs.push_back('\n');
 			break;
 		case scope_pixel:
 			m_ps.insert(m_ps.end(), start, end);
+			m_ps.push_back('\n');
 			break;
 		default:
 		case scope_global:
 			m_cs.insert(m_cs.end(), start, end);
 			m_vs.insert(m_vs.end(), start, end);
 			m_ps.insert(m_ps.end(), start, end);
+			m_cs.push_back('\n');
+			m_vs.push_back('\n');
+			m_ps.push_back('\n');
 			break;
 		}
 	}
@@ -256,10 +274,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void ceffect_parser::handle_include(int& i, std::vector<std::string>& lines, std::string_view path)
 	{
-		//- Ensure path has required format
-		std::string filepath = starts_with(path, "/") ? path.data() : fmt::format("/{}", path.data());
-
-		std::string source = m_handler(filepath.c_str());
+		std::string source = m_handler(path.data());
 
 		std::vector<std::string> out;
 

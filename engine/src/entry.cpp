@@ -21,6 +21,8 @@ namespace kokoro::entry
 			.new_service<cvirtual_filesystem_service>()
 			.new_service<crender_service>();
 
+		e.service<clog_service>().set_level(clog_service::level_trace);
+
 		if (!e.init())
 		{
 			return -1;

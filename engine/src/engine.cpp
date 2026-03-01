@@ -19,7 +19,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	bool cengine::init()
 	{
-		for (const auto& [_, s] : m_services)
+		for (const auto& s : m_services)
 		{
 			if (!s->init())
 			{
@@ -27,7 +27,7 @@ namespace kokoro
 			}
 		}
 
-		for (const auto& [_, s] : m_services)
+		for (const auto& s : m_services)
 		{
 			s->post_init();
 		}
@@ -38,7 +38,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void cengine::shutdown()
 	{
-		for (const auto& [_, s] : m_services)
+		for (const auto& s : m_services)
 		{
 			s->shutdown();
 		}
@@ -57,7 +57,7 @@ namespace kokoro
 
 			rs.begin_frame();
 
-			for (const auto& [_, s] : m_services)
+			for (const auto& s : m_services)
 			{
 				s->update(dt);
 			}

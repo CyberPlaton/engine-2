@@ -1,5 +1,6 @@
 #include <engine/effect/shader.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
+#include <engine/services/log_service.hpp>
 #include <engine.hpp>
 #include <../bgfx/tools/shaderc/shaderc.h>
 #include <fmt.h>
@@ -25,7 +26,7 @@ namespace kokoro
 				return -1;
 			}
 
-			[[nodiscard]] inline std::string take() const { return std::move(m_string); }
+			std::string_view view() const { return m_string; }
 
 		private:
 			std::string m_string;
@@ -37,15 +38,32 @@ namespace kokoro
 		class clogwriter final : public bx::WriterI
 		{
 		public:
+			clogwriter() = default;
+			~clogwriter()
+			{
+				if (!m_buffer.empty())
+				{
+					instance().service<clog_service>().err(fmt::format("[Bgfx Shaderc] {}",
+						m_buffer).c_str());
+				}
+			}
+
 			int32_t write(const void* data, int32_t size, bx::Error* error) override final
 			{
-				if (error->isOk())
+				if (size == 1)
 				{
-					printf(fmt::format("[Bgfx Shaderc]{}\n", (const char*)data).data());
-					return size;
+					m_buffer.push_back(*(char*)data);
 				}
-				return -1;
+				else
+				{
+					bx::StringView view((const char*)data, size);
+					m_buffer.insert(m_buffer.end(), view.getPtr(), view.getPtr() + view.getLength());
+				}
+				return size;
 			}
+
+		private:
+			std::string m_buffer;
 		};
 
 		//------------------------------------------------------------------------------------------------------------------------
@@ -87,6 +105,13 @@ namespace kokoro
 			out.optimize = options.m_optimization != scompile_options::optimization_level_none;
 			out.optimizationLevel = (unsigned)options.m_optimization;
 
+			//- In case we did not set the paths previously, we have to set them here
+			{
+				auto& vfs = instance().service<cvirtual_filesystem_service>();
+				out.includeDirs.push_back(vfs.basepath("engine"));
+				out.includeDirs.push_back(vfs.basepath("/"));
+			}
+
 			for (const auto& include : options.m_include_dirs)
 			{
 				out.includeDirs.emplace_back(include.data());
@@ -99,7 +124,6 @@ namespace kokoro
 			{
 				out.dependencies.emplace_back(dep.data());
 			}
-
 			return out;
 		}
 
@@ -153,7 +177,7 @@ namespace kokoro
 		{
 			auto& vfs = instance().service<cvirtual_filesystem_service>();
 
-			temp_path = fmt::format("{}{}.sc",
+			temp_path = fmt::format("{}/{}.sc",
 				vfs.basepath(".temp"),
 				filepath_t(options.m_name).stem().generic_string());
 
@@ -174,11 +198,13 @@ namespace kokoro
 		core::memory_ref_t memory{};
 		bgfx_options.inputFilePath = temp_path.generic_string();
 
+		instance().service<clog_service>().debug(fmt::format("[Bgfx Shaderc] Compiling shader '{}'",
+			options.m_name).c_str());
+
 		if (bgfx::compileShader(options.m_varying.data(), nullptr, (char*)code, static_cast<unsigned>(strlen(code)),
 			false, bgfx_options, &stringwriter, &logwriter))
 		{
-			std::string shader(stringwriter.take());
-			memory = std::make_shared<core::cmemory>((char*)shader.c_str(), shader.size());
+			memory = std::make_shared<core::cmemory>((char*)stringwriter.view().data(), stringwriter.view().size());
 		}
 
 		//- Erase the temporary file used for compilation
