@@ -20,10 +20,10 @@ namespace kokoro
 			level_off,
 		};
 
-		class iemitter
+		class ilog_writer
 		{
 		public:
-			virtual void emit(level, const char*) = 0;
+			virtual void write(level, const char*) = 0;
 		};
 
 		clog_service() = default;
@@ -44,7 +44,7 @@ namespace kokoro
 		void		critical(const char* string) { log(level_critical, string); }
 
 	private:
-		std::unique_ptr<iemitter> m_emitter = nullptr;
+		std::unique_ptr<ilog_writer> m_emitter = nullptr;
 	};
 
 } //- kokoro

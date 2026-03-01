@@ -6,10 +6,10 @@ namespace kokoro
 	namespace
 	{
 		//------------------------------------------------------------------------------------------------------------------------
-		class cspdlog_emitter final : public clog_service::iemitter
+		class cspdlog_writer final : public clog_service::ilog_writer
 		{
 		public:
-			cspdlog_emitter()
+			cspdlog_writer()
 			{
 #if DEBUG
 				spdlog::flush_every(std::chrono::seconds(1));
@@ -22,9 +22,9 @@ namespace kokoro
 				m_logger = spdlog::basic_logger_mt("release", "Log.log");
 #endif
 			}
-			~cspdlog_emitter() = default;
+			~cspdlog_writer() = default;
 
-			void emit(clog_service::level l, const char* string) override final
+			void write(clog_service::level l, const char* string) override final
 			{
 				switch (l)
 				{
@@ -60,7 +60,7 @@ namespace kokoro
 	bool clog_service::init()
 	{
 		spdlog::set_pattern("%^[%n] %v%$");
-		m_emitter = std::make_unique<cspdlog_emitter>();
+		m_emitter = std::make_unique<cspdlog_writer>();
 		return true;
 	}
 
@@ -92,7 +92,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void clog_service::log(level l, const char* string)
 	{
-		m_emitter->emit(l, string);
+		m_emitter->write(l, string);
 	}
 
 } //- kokoro
