@@ -3,9 +3,9 @@
 namespace kokoro
 {
 	bgfx::VertexLayout spos_uv_vertex::S_LAYOUT;
-	bgfx::VertexLayoutHandle spos_uv_vertex::S_HANDLE;
+	bgfx::VertexLayoutHandle spos_uv_vertex::S_HANDLE = BGFX_INVALID_HANDLE;
 	bgfx::VertexLayout spos_color_uv_vertex::S_LAYOUT;
-	bgfx::VertexLayoutHandle spos_color_uv_vertex::S_HANDLE;
+	bgfx::VertexLayoutHandle spos_color_uv_vertex::S_HANDLE = BGFX_INVALID_HANDLE;
 
 	//------------------------------------------------------------------------------------------------------------------------
 	void spos_uv_vertex::init()
