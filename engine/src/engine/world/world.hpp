@@ -1,21 +1,22 @@
 #pragma once
-#include <common.hpp>
-#include <core/config.hpp>
 #include <core/uuid.hpp>
-#include <math/aabb.hpp>
-#include <math/ray.hpp>
-#include <core/plugin.hpp>
 #include <engine/world/system.hpp>
 #include <engine/world/module.hpp>
 #include <engine/world/singleton.hpp>
 #include <engine/world/component.hpp>
 #include <engine/world/change_tracker.hpp>
 #include <engine/scene.hpp>
+#include <engine/math/aabb.hpp>
+#include <engine/math/ray.hpp>
+#include <box2d.h>
 
 namespace kokoro
 {
 	namespace world
 	{
+		using entity_proxy_t = int;
+		using query_t = uint64_t;
+
 		namespace detail
 		{
 			//- TODO: these 3 functions should be moved somewhere else or refactored somehow. Used for change trackers, but really
@@ -84,9 +85,9 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		struct sproxy final
 		{
-			aabb_t m_aabb;
+			math::aabb_t m_aabb;
 			flecs::entity m_entity;
-			entity_proxy_t m_id		= MINIMUM(entity_proxy_t);
+			entity_proxy_t m_id		= std::numeric_limits<entity_proxy_t>().max();
 			unsigned m_query_key	= 0;
 		};
 
@@ -96,8 +97,8 @@ namespace kokoro
 		enum world_flag : uint8_t
 		{
 			world_flag_none			= 0,
-			world_flag_foreground	= BIT(0),	//- Active world that renders to screen and uses GPU resources
-			world_flag_background	= BIT(1),	//- Active world that does not render to screen and does not use GPU resources
+			world_flag_foreground	= 1 << 0,	//- Active world that renders to screen and uses GPU resources
+			world_flag_background	= 1 << 1,	//- Active world that does not render to screen and does not use GPU resources
 		};
 
 		//- Configuration of the world to be created. Note that plugins and modules do not need to be set, but are rather
@@ -105,8 +106,8 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		struct sconfig final
 		{
-			vector_t<std::string> m_plugins;
-			vector_t<std::string> m_modules;
+			std::vector<std::string> m_plugins;
+			std::vector<std::string> m_modules;
 			unsigned m_threads = 1;
 			world_flags_t m_flags = 0;
 
@@ -114,21 +115,19 @@ namespace kokoro
 		};
 
 		//------------------------------------------------------------------------------------------------------------------------
-		struct sworld final :
-			private core::cnon_copyable,
-			private core::cnon_movable
+		struct sworld final
 		{
-			static inline constexpr auto C_MASTER_QUERY_KEY_MAX	= ECS_QUERY_COUNT_MAX;
-			static inline constexpr auto C_INVALID_QUERY_ID		= MAXIMUM(query_t);
+			static inline constexpr auto C_MASTER_QUERY_KEY_MAX	= 128;
+			static inline constexpr auto C_INVALID_QUERY_ID		= std::numeric_limits<query_t>().max();
 
 			using entities_t				= std::vector<flecs::entity>;
 			using systems_t					= std::unordered_map<std::string, flecs::system>;
 			using component_types_t			= std::set<std::string>;
-			using active_component_count_t	= std::unordered_map<std::string, size_t>;
+			using active_component_count_t	= std::unordered_map<std::string, uint64_t>;
 			using entity_component_types_t	= std::unordered_map<uint64_t, component_types_t>;
 			using results_t					= std::unordered_map<query_t, squery::result_t>;
 			using queries_t					= std::map<query_t, squery>;
-			using change_trackers_t			= std::unordered_map<uint64_t, ref_t<ichange_tracker>>;
+			using change_trackers_t			= std::unordered_map<uint64_t, std::shared_ptr<ichange_tracker>>;
 
 			struct sproxy_manager
 			{
@@ -154,6 +153,11 @@ namespace kokoro
 			sworld(std::string_view name);
 			sworld(std::string_view name, sconfig cfg);
 			~sworld();
+
+			sworld& operator=(const sworld&) = delete;
+			sworld(const sworld&) = delete;
+			sworld(sworld&&) = delete;
+			sworld& operator=(const sworld&&) = delete;
 
 			const char*			name() const { return m_name.c_str(); }
 			uint64_t			id() const { return m_id; }
@@ -183,9 +187,9 @@ namespace kokoro
 			change_tracker_t m_transform_tracker;	//- Change tracker for any transform changes for updating proxies
 
 		private:
-			sconfig m_cfg;							//- World configuration. A dynamic object that can change throughout the lifetime of the world if necessery
-			std::string m_name;						//- Given name of the world. Will be the same throughout the lifetime of the world
-			uint64_t m_id = MAXIMUM(uint64_t);		//- Unique identifier of the world. Basically a hash value
+			sconfig m_cfg;												//- World configuration. A dynamic object that can change throughout the lifetime of the world if necessery
+			std::string m_name;											//- Given name of the world. Will be the same throughout the lifetime of the world
+			uint64_t m_id = std::numeric_limits<uint64_t>().max();		//- Unique identifier of the world. Basically a hash value
 		};
 
 		namespace components
@@ -519,24 +523,24 @@ namespace kokoro
 
 		} //- query
 
-		sscene						as_scene(const sworld& w);									//- Retrieve the scene representation for the given world
-		aabb_t						visible_area(const sworld& w,							//- Calculate the visible are for the worlds main camera
-			float width_scale = render::C_WORLD_VISIBLE_AREA_SCALE_X,
-			float height_scale = render::C_WORLD_VISIBLE_AREA_SCALE_Y);
-		entity_set_t				visible_entities(const sworld& w, const aabb_t& area);	//- Retrieve all visible entities in a world for a given area
-		sworld::entities_t			entities(const sworld& w);								//- Retrieve all entities in a world
+		sscene						as_scene(const sworld& w);												//- Retrieve the scene representation for the given world
+		math::aabb_t				visible_area(const sworld& w,											//- Calculate the visible are for the worlds main camera
+			float width_scale = 1.0f,
+			float height_scale = 1.0f);
+		std::vector<flecs::entity>	visible_entities(const sworld& w, const math::aabb_t& area);			//- Retrieve all visible entities in a world for a given area
+		sworld::entities_t			entities(const sworld& w);												//- Retrieve all entities in a world
 		void						tick(sworld& w, float dt);
 		sworld*						deserialize(const nlohmann::json& json);
 		nlohmann::json				serialize(const sworld& w);
 		std::string					filepath(int id);
-		sworld*						create(std::string_view name_or_filepath,				//- Create a new world that will be deserialized from file or freshly made if file was not found
+		sworld*						create(std::string_view name_or_filepath,								//- Create a new world that will be deserialized from file or freshly made if file was not found
 										std::optional<sconfig> cfg = std::nullopt);
-		sworld*						active();												//- Retrieve the world currently active in the foreground
-		void						promote(sworld& w);										//- Set the given world as active in the foreground. This will automatically demote the previously active one
-		void						demote(sworld& w);										//- Set the given world as background world
+		sworld* active();																					//- Retrieve the world currently active in the foreground
+		void						promote(sworld& w);														//- Set the given world as active in the foreground. This will automatically demote the previously active one
+		void						demote(sworld& w);														//- Set the given world as background world
 		void						destroy(std::string_view name_or_filepath);
 		void						cleanup();
-		sworld*						find(std::string_view name_or_filepath);				//- Retrieve a world by name or fielpath it was loaded with
+		sworld*						find(std::string_view name_or_filepath);								//- Retrieve a world by name or fielpath it was loaded with
 
 	} //- world
 

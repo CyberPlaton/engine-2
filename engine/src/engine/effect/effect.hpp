@@ -58,6 +58,8 @@ namespace kokoro
 
 	seffect_snapshot*	effect_snapshot_from_file(const char* filepath);
 	seffect*			instantiate_effect(const seffect_snapshot& snapshot, const char* name);
-	void				destroy_instance(const char* name);
+	void				destroy_effect(const char* name);
+	suniform			create_uniform(const char* name, suniform::type type);
+	void				update_uniform(suniform& uniform, rttr::variant&& data);
 
 } //- kokoro

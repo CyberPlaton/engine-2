@@ -1,8 +1,8 @@
 #include <engine/world/world.hpp>
 #include <engine/world/prefab.hpp>
-#include <engine/render/render_systems.hpp>
 #include <engine/services/thread_service.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
+#include <engine/services/log_service.hpp>
 #include <engine/animation/module.hpp>
 #include <engine/components/sprite.hpp>
 #include <engine/components/camera.hpp>
@@ -11,6 +11,9 @@
 #include <core/hash.hpp>
 #include <core/mutex.hpp>
 #include <engine.hpp>
+#include <array>
+#include <unordered_set>
+#include <unordered_map>
 
 namespace kokoro
 {
@@ -19,9 +22,20 @@ namespace kokoro
 		namespace detail
 		{
 			//------------------------------------------------------------------------------------------------------------------------
+			template<typename... ARGS>
+			rttr::variant invoke_static_function(rttr::type class_type, rttr::string_view function_name, ARGS&&... args)
+			{
+				if (const auto m = class_type.get_method(function_name); m.is_valid())
+				{
+					return m.invoke({}, args...);
+				}
+				return {};
+			}
+
+			//------------------------------------------------------------------------------------------------------------------------
 			std::pair<bool, uint64_t> do_check_is_flecs_built_in_phase(std::string_view name)
 			{
-				static array_t<std::pair<std::string, uint64_t>, 8> C_PHASES =
+				static std::array<std::pair<std::string, uint64_t>, 8> C_PHASES =
 				{
 					std::pair("OnLoad",		(uint64_t)flecs::OnLoad),
 					std::pair("PostLoad",	(uint64_t)flecs::PostLoad),
@@ -33,7 +47,7 @@ namespace kokoro
 					std::pair("OnStore",	(uint64_t)flecs::OnStore)
 				};
 
-				if (const auto& it = algorithm::find_if(C_PHASES.begin(), C_PHASES.end(), [=](const auto& pair)
+				if (const auto& it = std::find_if(C_PHASES.begin(), C_PHASES.end(), [=](const auto& pair)
 					{
 						return string_utils::compare(pair.first, name.data());
 
@@ -42,7 +56,7 @@ namespace kokoro
 					return { true, (uint64_t)it->second };
 				}
 
-				return { false, MAXIMUM(uint64_t) };
+				return { false, std::numeric_limits<uint64_t>().max() };
 			}
 
 			//------------------------------------------------------------------------------------------------------------------------
@@ -62,7 +76,7 @@ namespace kokoro
 
 					auto type = rttr::type::get_by_name(c);
 
-					sc.m_data = rttr::detail::invoke_static_function(type, "get", e);
+					sc.m_data = invoke_static_function(type, "get", e);
 					sc.m_type_name = type.get_name().data();
 				}
 
@@ -116,8 +130,8 @@ namespace kokoro
 			struct simported_system final
 			{
 				std::string m_name;
-				vector_t<std::string> m_run_before;
-				vector_t<std::string> m_run_after;
+				std::vector<std::string> m_run_before;
+				std::vector<std::string> m_run_after;
 			};
 
 			//------------------------------------------------------------------------------------------------------------------------
@@ -135,15 +149,15 @@ namespace kokoro
 
 			core::cmutex mutex;
 			std::unordered_map<uint64_t, sworld> cache;
-			std::unordered_map<int, fs::cfilepath> paths;
-			uint64_t current_active_world = MAXIMUM(uint64_t);
+			std::unordered_map<int, filepath_t> paths;
+			uint64_t current_active_world = std::numeric_limits<uint64_t>().max();
 
 			//------------------------------------------------------------------------------------------------------------------------
 			kokoro::modules::sconfig get_module_config(std::string_view type)
 			{
 				if (const auto t = rttr::type::get_by_name(type.data()); t.is_valid())
 				{
-					if (const auto m = t.get_method(kokoro::modules::smodule::C_MODULE_CONFIG_FUNC_NAME); m.is_valid())
+					if (const auto m = t.get_method("config"); m.is_valid())
 					{
 						return m.invoke({}).convert<kokoro::modules::sconfig>();
 					}
@@ -156,7 +170,7 @@ namespace kokoro
 			{
 				if (const auto t = rttr::type::get_by_name(type.data()); t.is_valid())
 				{
-					if (const auto m = t.get_method(kokoro::system::ssystem::C_SYSTEM_CONFIG_FUNC_NAME); m.is_valid())
+					if (const auto m = t.get_method("config"); m.is_valid())
 					{
 						return m.invoke({}).convert<kokoro::system::sconfig>();
 					}
@@ -169,7 +183,7 @@ namespace kokoro
 			{
 				if (const auto t = rttr::type::get_by_name(type.data()); t.is_valid())
 				{
-					if (const auto m = t.get_method(core::plugin::C_PLUGIN_CONFIG_FUNC_NAME); m.is_valid())
+					if (const auto m = t.get_method("config"); m.is_valid())
 					{
 						return m.invoke({}).convert<core::plugin::sconfig>();
 					}
@@ -182,8 +196,8 @@ namespace kokoro
 			//------------------------------------------------------------------------------------------------------------------------
 			std::vector<std::string> topsort(const std::vector<simported_module>& data, bool verbose)
 			{
-				std::unordered_map<std::string, uset_t<std::string>> systems_module_map; //- Mapping all systems to their dependency modules
-				std::unordered_map<std::string, uset_t<std::string>> modules_to_module_map; //- Mapping all modules to their dependency modules
+				std::unordered_map<std::string, std::unordered_set<std::string>> systems_module_map; //- Mapping all systems to their dependency modules
+				std::unordered_map<std::string, std::unordered_set<std::string>> modules_to_module_map; //- Mapping all modules to their dependency modules
 
 				//- First of all, create the system-to-module map required for lookup of relationships
 				for (const auto& d : data)
@@ -253,11 +267,11 @@ namespace kokoro
 					d.erase(m);
 				}
 
-				const auto do_topsort = [](const umap_t<std::string, uset_t<std::string>>& graph) -> vector_t<std::string>
+				const auto do_topsort = [](const std::unordered_map<std::string, std::unordered_set<std::string>>& graph) -> std::vector<std::string>
 					{
-						vector_t<std::string> sorted;
-						uset_t<std::string> visited;
-						uset_t<std::string> recursion_stack;
+						std::vector<std::string> sorted;
+						std::unordered_set<std::string> visited;
+						std::unordered_set<std::string> recursion_stack;
 
 						std::function<bool(const std::string&)> depth_first_search = [&](const std::string& node) -> bool
 							{
@@ -297,8 +311,7 @@ namespace kokoro
 							{
 								if (depth_first_search(module))
 								{
-									log_critical(fmt::format("Cyclic module dependency '{}'", module));
-									CORE_ASSERT(false, "Cyclic module dependency detected!");
+									//- Cyclic module dependency
 									return {};
 								}
 							}
@@ -308,35 +321,6 @@ namespace kokoro
 					};
 
 				auto result = do_topsort(modules_to_module_map);
-
-				if (verbose)
-				{
-					log_debug(fmt::format("[Module Manager] Imported systems '{}' and imported modules '{}'", systems_module_map.size(), modules_to_module_map.size()));
-					log_debug("[Module Manager] System-to-module dependencies:");
-					for (const auto& [system, deps] : systems_module_map)
-					{
-						log_debug(fmt::format("\t{}", system));
-						log_debug(fmt::format("\t\tdeps modules: {}", string_utils::join(deps.begin(), deps.end(), ", ")));
-					}
-
-					log_debug("[Module Manager] Module-to-module dependencies:");
-					for (const auto& [module, deps] : modules_to_module_map)
-					{
-						log_debug(fmt::format("\t{}", module));
-						log_debug(fmt::format("\t\tdeps modules: {}", string_utils::join(deps.begin(), deps.end(), ", ")));
-					}
-
-					log_debug("[Module Manager] Resulting import order:");
-					for (const auto& module : result)
-					{
-						log_debug(fmt::format("\t{}", module));
-						for (auto s : get_module_config(module).m_systems)
-						{
-							log_debug(fmt::format("\t\t{}", s));
-						}
-					}
-				}
-
 				return result;
 			}
 
@@ -355,7 +339,7 @@ namespace kokoro
 				case squery::type_any:		return rttr::variant(false);
 				case squery::type_all:		return rttr::variant(std::vector<flecs::entity>{});
 				default:
-				case squery::type_none: CORE_ASSERT(false, "Unrecognized query type"); return {};
+				case squery::type_none:		return {};
 				}
 			}
 
@@ -365,26 +349,18 @@ namespace kokoro
 				w.m_query_results[w.m_current_query_key] = result_type(q.m_type);
 				auto& tree = w.m_proxy_manager.m_quad_tree;
 
-				if (w.m_current_query.m_intersection == squery::intersection_aabb)
+				if (w.m_current_query.m_intersection == squery::intersection_aabb &&
+					q.m_data.get_type() == rttr::type::get<math::aabb_t>())
 				{
-					CORE_ASSERT(q.m_data.get_type() == rttr::type::get<aabb_t>(),
-						"Invalid operation. Unexpected config data type for aabb intersection");
-
-					box2d::b2DynamicTree_Query(&tree, q.m_data.get_value<aabb_t>(), B2_DEFAULT_MASK_BITS, &query::detail::query_callback, &w);
+					box2d::b2DynamicTree_Query(&tree, q.m_data.get_value<math::aabb_t>(), B2_DEFAULT_MASK_BITS, &query::detail::query_callback, &w);
 				}
 
-				else if (w.m_current_query.m_intersection == squery::intersection_ray)
+				else if (w.m_current_query.m_intersection == squery::intersection_ray &&
+					q.m_data.get_type() == rttr::type::get<math::ray_t>())
 				{
-					CORE_ASSERT(q.m_data.get_type() == rttr::type::get<ray_t>(),
-						"Invalid operation. Unexpected config data type for ray intersection");
-
-					box2d::b2RayCastInput ray = q.m_data.get_value<ray_t>();
+					box2d::b2RayCastInput ray = q.m_data.get_value<math::ray_t>();
 
 					box2d::b2DynamicTree_RayCast(&tree, &ray, B2_DEFAULT_MASK_BITS, &query::detail::raycast_callback, &w);
-				}
-				else
-				{
-					CORE_ASSERT(false, "Unrecognized query intersection type");
 				}
 			}
 
@@ -393,8 +369,6 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		void sworld::sproxy_manager::tick()
 		{
-			CORE_ZONE;
-
 			//- process proxy creation requests
 			for (const auto& e : m_creation_queue)
 			{
@@ -406,8 +380,6 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		void sworld::sproxy_manager::update_proxy(flecs::entity e)
 		{
-			CORE_ZONE;
-
 			if (const auto* id = e.get<components::sidentifier>(); id)
 			{
 				if (const auto it = m_proxies.find(id->m_uuid); it != m_proxies.end())
@@ -417,12 +389,6 @@ namespace kokoro
 					const auto* transform = e.get<render::component::sworld_transform>();
 					proxy.m_aabb = transform->m_aabb;
 					box2d::b2DynamicTree_MoveProxy(&m_quad_tree, proxy.m_id, transform->m_aabb);
-
-					log_debug(fmt::format("Updating proxy '{} ({})'", id->m_name, id->m_uuid.string()));
-				}
-				else
-				{
-					log_error(fmt::format("Trying to update unknown proxy '{}'", e.id()));
 				}
 			}
 		}
@@ -430,22 +396,13 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		void sworld::sproxy_manager::destroy_proxy(flecs::entity e)
 		{
-			CORE_ZONE;
-
 			if (const auto* id = e.get<components::sidentifier>(); id)
 			{
 				if (const auto it = m_proxies.find(id->m_uuid); it != m_proxies.end())
 				{
 					box2d::b2DynamicTree_DestroyProxy(&m_quad_tree, it->second.m_id);
-
-					algorithm::erase_at(m_proxies, it);
-
-					log_debug(fmt::format("Destroying proxy '{} ({})'", id->m_name, id->m_uuid.string()));
+					m_proxies.erase(it);
 				}
-			}
-			else
-			{
-				log_error(fmt::format("Trying to destroy unknown proxy '{}'", e.id()));
 			}
 		}
 
@@ -462,14 +419,11 @@ namespace kokoro
 			proxy.m_id = box2d::b2DynamicTree_CreateProxy(&m_quad_tree, transform->m_aabb, B2_DEFAULT_CATEGORY_BITS, data_id);
 
 			m_user_data[data_id] = id->m_uuid;
-
-			log_debug(fmt::format("Creating proxy '{} ({})'", id->m_name, id->m_uuid.string()));
 		}
 
 		//------------------------------------------------------------------------------------------------------------------------
 		void sworld::sproxy_manager::queue_create_proxy(flecs::entity e)
 		{
-			log_debug(fmt::format("Queue creating proxy '{}'", e.id()));
 			m_creation_queue.push_back(e);
 		}
 
@@ -502,7 +456,7 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		int sworld::sproxy_manager::user_data_id(const flecs::entity& e) const
 		{
-			return algorithm::hash(e.get<components::sidentifier>()->m_uuid.string());
+			return core::hash(e.get<components::sidentifier>()->m_uuid.string());
 		}
 
 		//------------------------------------------------------------------------------------------------------------------------
@@ -513,10 +467,8 @@ namespace kokoro
 
 		//------------------------------------------------------------------------------------------------------------------------
 		sworld::sworld(std::string_view name, sconfig cfg)
-			: m_name(name.data()), m_id(algorithm::hash(m_name)), m_cfg(cfg)
+			: m_name(name.data()), m_id(core::hash(m_name)), m_cfg(cfg)
 		{
-			log_debug(fmt::format("Creating world '{}'", this->name()));
-
 			m_proxy_manager.m_quad_tree = box2d::b2DynamicTree_Create();
 
 			auto& w = m_world;
@@ -537,7 +489,7 @@ namespace kokoro
 				.event(flecs::OnAdd)
 				.event(flecs::OnRemove)
 				.ctx(this)
-				.each([](flecs::iter& it, size_t i,
+				.each([](flecs::iter& it, uint64_t i,
 					render::component::ssprite&,
 					render::component::slocal_transform&,
 					components::sidentifier& id)
@@ -566,7 +518,7 @@ namespace kokoro
 				.event(flecs::OnRemove)
 				.with(flecs::Wildcard)
 				.ctx(this)
-				.each([](flecs::iter& it, size_t i)
+				.each([](flecs::iter& it, uint64_t i)
 					{
 						if (auto* world = reinterpret_cast<sworld*>(it.ctx()); world)
 						{

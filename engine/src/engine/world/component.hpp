@@ -1,13 +1,15 @@
 #pragma once
 #include <string_view>
+#include <core/io.hpp>
 #include <rttr.h>
+#include <nlohmann.h>
 
 //-------------------------------------------------------------------------------------------------------------------------
 #define __DECLARE_COMPONENT_IMPL__(c) \
 c() = default; \
 ~c() = default; \
 c(kokoro::world::sworld& w) { w.m_world.component<c>(); } \
-static std::string_view name() { static constexpr std::string_view C_NAME = STRING(c); return C_NAME; } \
+static std::string_view name() { static constexpr std::string_view C_NAME = #c; return C_NAME; } \
 static void do_default_serialize(const rttr::variant& var, nlohmann::json& json) \
 { \
 if (const auto type = var.get_type(); type.is_valid() && type == rttr::type::get<c>()) \
@@ -15,8 +17,8 @@ if (const auto type = var.get_type(); type.is_valid() && type == rttr::type::get
 const auto& comp = var.get_value<c>(); \
 const auto type_name = rttr::type::get<c>().get_name().data(); \
 json = nlohmann::json::object(); \
-json[core::io::C_OBJECT_TYPE_NAME] = type_name; \
-json[type_name] = core::io::to_json_object(comp); \
+json[core::C_OBJECT_TYPE_NAME] = type_name; \
+json[type_name] = core::to_json_object(comp); \
 } \
 } \
 static void do_default_deserialize(rttr::variant& var, nlohmann::json& json) \
@@ -26,24 +28,23 @@ if (const auto type = rttr::type::get<c>(); type.is_valid() && var.is_valid() &&
 const auto type_name = type.get_name(); \
 if (json.contains(type_name.data())) \
 { \
-var = core::io::from_json_object(type, json[type_name.data()]); \
+var = core::from_json_object(type, json[type_name.data()]); \
 } \
 } \
 } \
 static void do_serialize(const rttr::variant& var, nlohmann::json& json) \
 { \
 const auto type = var.get_type(); \
-if (auto custom_method = type.get_method(kokoro::ecs::detail::C_COMPONENT_CUSTOM_SERIALIZE_FUNC_NAME.data()); custom_method.is_valid()) \
+if (auto custom_method = type.get_method(kokoro::ecs::C_COMPONENT_CUSTOM_SERIALIZE_FUNC_NAME.data()); custom_method.is_valid()) \
 { \
 custom_method.invoke({}, var, json); \
 } \
-else if (auto default_method = type.get_method(kokoro::ecs::detail::C_COMPONENT_DEFAULT_SERIALIZE_FUNC_NAME.data()); default_method.is_valid()) \
+else if (auto default_method = type.get_method(kokoro::ecs::C_COMPONENT_DEFAULT_SERIALIZE_FUNC_NAME.data()); default_method.is_valid()) \
 { \
 default_method.invoke({}, var, json); \
 } \
 else \
 { \
-log_error(fmt::format("\tcomponent '{}' has neither a custom serialize method nor a default one", type.get_name().data())); \
 } \
 } \
 static void do_serialize(flecs::entity e, nlohmann::json& json) \
@@ -59,17 +60,16 @@ var = c{}; \
 const auto type = rttr::type::get<c>(); \
 if (json.contains(type.get_name().data())) \
 { \
-if (auto custom_method = type.get_method(kokoro::ecs::detail::C_COMPONENT_CUSTOM_DESERIALIZE_FUNC_NAME.data()); custom_method.is_valid()) \
+if (auto custom_method = type.get_method(kokoro::ecs::C_COMPONENT_CUSTOM_DESERIALIZE_FUNC_NAME.data()); custom_method.is_valid()) \
 { \
 custom_method.invoke({}, var, json); \
 } \
-else if (auto default_method = type.get_method(kokoro::ecs::detail::C_COMPONENT_DEFAULT_DESERIALIZE_FUNC_NAME.data()); default_method.is_valid()) \
+else if (auto default_method = type.get_method(kokoro::ecs::C_COMPONENT_DEFAULT_DESERIALIZE_FUNC_NAME.data()); default_method.is_valid()) \
 { \
 default_method.invoke({}, var, json); \
 } \
 else \
 { \
-log_error(fmt::format("\tcomponent '{}' has neither a custom deserialize method nor a default one", type.get_name().data())); \
 } \
 } \
 } \

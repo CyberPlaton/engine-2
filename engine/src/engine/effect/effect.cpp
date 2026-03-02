@@ -182,11 +182,11 @@ namespace kokoro
 			for (const auto& snapshot_uniform : snapshot.m_uniforms)
 			{
 				auto& uniform = effect.m_uniforms.emplace_back();
-				uniform = snapshot_uniform;
-				uniform.m_handle = bgfx::createUniform(uniform.m_name.c_str(), uniform.m_type);
+				uniform = std::move(create_uniform(uniform.m_name.c_str(), uniform.m_type));
 				if (uniform.m_data.is_valid())
 				{
-					bgfx::setUniform(uniform.m_handle, uniform.m_data.get_raw_ptr());
+					auto data = snapshot_uniform.m_data;
+					update_uniform(uniform, std::move(data));
 				}
 			}
 		}
@@ -225,7 +225,7 @@ namespace kokoro
 			}
 			else
 			{
-				instance().service<clog_service>().err(fmt::format("Could not find include file at '{}'",
+				instance().service<clog_service>().err(fmt::format("Could not find effect snapshot file at '{}'",
 					filepath).c_str());
 				return nullptr;
 			}
@@ -242,7 +242,7 @@ namespace kokoro
 
 			if (mem && !mem->empty())
 			{
-				if (auto var = kokoro::from_json_blob(rttr::type::get<seffect_snapshot>(), mem->data(), mem->size()); var.is_valid())
+				if (auto var = core::from_json_blob(rttr::type::get<seffect_snapshot>(), mem->data(), mem->size()); var.is_valid())
 				{
 					core::cscoped_mutex m(snapshot_mutex);
 
@@ -259,7 +259,7 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	void destroy_instance(const char* name)
+	void destroy_effect(const char* name)
 	{
 		if (auto it = instance_cache.find(name); it != instance_cache.end())
 		{
@@ -292,6 +292,28 @@ namespace kokoro
 
 			instance_cache.erase(name);
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	suniform create_uniform(const char* name, suniform::type type)
+	{
+		suniform output;
+		output.m_name = name;
+		output.m_handle = bgfx::createUniform(name, type);
+
+		if (bgfx::isValid(output.m_handle))
+		{
+			output.m_type = type;
+			return output;
+		}
+		return {};
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	void update_uniform(suniform& uniform, rttr::variant&& data)
+	{
+		uniform.m_data = std::move(data);
+		bgfx::setUniform(uniform.m_handle, uniform.m_data.get_raw_ptr());
 	}
 
 } //- kokoro
