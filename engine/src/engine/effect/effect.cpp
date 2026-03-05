@@ -244,9 +244,9 @@ RTTR_REGISTRATION
 		.prop("m_data", &suniform::m_data)
 		.prop("m_type", &suniform::m_type);
 
-	rttr::cregistrator<seffect_snapshot::sshader>("seffect_snapshot::sshader")
-		.prop("m_filepath_or_name", &seffect_snapshot::sshader::m_filepath_or_name)
-		.prop("m_type", &seffect_snapshot::sshader::m_type);
+	rttr::cregistrator<seffect_snapshot::ssnapshot_shader>("seffect_snapshot::sshader")
+		.prop("m_filepath_or_name", &seffect_snapshot::ssnapshot_shader::m_filepath_or_name)
+		.prop("m_type", &seffect_snapshot::ssnapshot_shader::m_type);
 
 	rttr::cregistrator<seffect_snapshot>("seffect_snapshot")
 		.prop("m_vs", &seffect_snapshot::m_vs)

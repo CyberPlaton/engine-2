@@ -22,7 +22,7 @@ namespace kokoro
 	};
 
 	//------------------------------------------------------------------------------------------------------------------------
-	struct smaterial final
+	struct smaterial
 	{
 		inline static constexpr uint64_t C_MATERIAL_STATE_DEFAULT = 0
 			| BGFX_STATE_WRITE_RGB

@@ -3,6 +3,7 @@
 #include <core/io.hpp>
 #include <rttr.h>
 #include <nlohmann.h>
+#include <registrator.hpp>
 
 //-------------------------------------------------------------------------------------------------------------------------
 #define __DECLARE_COMPONENT_IMPL__(c) \
@@ -237,10 +238,6 @@ namespace rttr
 			cregistrator<TComponent>(name)
 		{
 			register_common_component_functions();
-			if (const auto type = rttr::type::get<TComponent>(); !type.is_valid())
-			{
-				log_error(fmt::format("Failed to register Component with name '{}'", name.data()));
-			}
 		}
 
 		ccomponent& custom_serialization()
@@ -277,7 +274,7 @@ namespace rttr
 
 			if constexpr (decltype(detail::detect_show_ui<TComponent>(0))::value)
 			{
-				this->meth(kokoro::ecs::detail::C_COMPONENT_SHOW_UI_FUNC_NAME, &TComponent::show_ui);
+				this->meth(kokoro::ecs::C_COMPONENT_SHOW_UI_FUNC_NAME, &TComponent::show_ui);
 			}
 		}
 	};

@@ -20,6 +20,8 @@ namespace kokoro
 	public:
 		struct sinstance : public TResource
 		{
+			sinstance(TResource&& resource) : TResource(std::move(resource)) {}
+
 			filepath_t m_path;
 			const TSnapshot* m_snapshot;
 		};
@@ -91,7 +93,7 @@ namespace kokoro
 		{
 			core::cscoped_mutex m(m_instances_mutex);
 
-			for (const auto& inst : m_instances)
+			for (auto& inst : m_instances)
 			{
 				if (inst.m_path == path)
 				{
@@ -129,7 +131,7 @@ namespace kokoro
 			}
 		}
 
-		if (const auto it = m_snapshots.find(path); it != m_snapshots.end())
+		if (const auto it = m_snapshots.find(hash(path)); it != m_snapshots.end())
 		{
 			return &it->second;
 		}
@@ -147,7 +149,7 @@ namespace kokoro
 			else
 			{
 				instance().service<clog_service>().err(fmt::format("Could not find resource snapshot file at '{}'",
-					path).c_str());
+					path.generic_string()).c_str());
 				return nullptr;
 			}
 		}
@@ -168,7 +170,7 @@ namespace kokoro
 					core::cscoped_mutex m(m_snapshot_mutex);
 
 					if (auto [it, result] = m_snapshots.emplace(std::piecewise_construct,
-						std::forward_as_tuple(path),
+						std::forward_as_tuple(hash(path)),
 						std::forward_as_tuple(std::move(var.get_value<TSnapshot>()))); result)
 					{
 						return &it->second;

@@ -31,9 +31,9 @@ namespace kokoro::world
 		cchange_tracker(flecs::world& w);
 		virtual ~cchange_tracker();
 
-		void			tick() override final;
-		bool			changed() override final;
-		entity_set_t	entities() const override final;
+		void						tick() override final;
+		bool						changed() override final;
+		std::vector<flecs::entity>	entities() const override final;
 
 	private:
 		std::vector<flecs::entity> m_entities;

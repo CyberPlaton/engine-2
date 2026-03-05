@@ -1,6 +1,7 @@
 #pragma once
 #include <rttr.h>
 #include <flecs.h>
+#include <vector>
 
 //- Use macro to reflect your system, the system function must be declared and implemented.
 //-------------------------------------------------------------------------------------------------------------------------
@@ -48,8 +49,8 @@ namespace kokoro
 		struct sconfig final
 		{
 			std::string m_name;
-			vector_t<std::string> m_run_after;
-			vector_t<std::string> m_run_before;
+			std::vector<std::string> m_run_after;
+			std::vector<std::string> m_run_before;
 			uint32_t m_interval		= 0;
 			system_flags_t m_flags	= 0;
 		};
@@ -59,9 +60,6 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		struct ssystem final
 		{
-			static constexpr rttr::string_view C_SYSTEM_CONFIG_FUNC_NAME = "config";
-			static constexpr array_t<rttr::string_view, 1> C_SYSTEM_FUNC_NAMES = { C_SYSTEM_CONFIG_FUNC_NAME };
-
 			static sconfig config() { return {}; }
 
 			RTTR_ENABLE()

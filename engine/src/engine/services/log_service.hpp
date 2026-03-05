@@ -37,7 +37,7 @@ namespace kokoro
 		void		set_level(level l);
 		void		log(level l, const char* string);
 		template<typename... ARGS>
-		void		log(level l, const char* format, ARGS&&... args) { m_emitter->write(l, fmt::format(format, fmt::make_format_args(args...))); }
+		void		log(level l, const char* format, ARGS&&... args) { m_emitter->write(l, fmt::format(format, std::forward<ARGS>(args)...).c_str()); }
 
 		void		trace(const char* string) { log(level_trace, string); }
 		void		debug(const char* string) { log(level_debug, string); }

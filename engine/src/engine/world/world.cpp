@@ -49,7 +49,7 @@ namespace kokoro
 
 				if (const auto& it = std::find_if(C_PHASES.begin(), C_PHASES.end(), [=](const auto& pair)
 					{
-						return string_utils::compare(pair.first, name.data());
+						return pair.first == name;
 
 					}); it != C_PHASES.end())
 				{
