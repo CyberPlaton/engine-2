@@ -36,12 +36,28 @@ namespace kokoro
 
 		void		set_level(level l);
 		void		log(level l, const char* string);
+		template<typename... ARGS>
+		void		log(level l, const char* format, ARGS&&... args) { m_emitter->write(l, fmt::format(format, fmt::make_format_args(args...))); }
+
 		void		trace(const char* string) { log(level_trace, string); }
 		void		debug(const char* string) { log(level_debug, string); }
 		void		info(const char* string) { log(level_info, string); }
 		void		warn(const char* string) { log(level_warn, string); }
 		void		err(const char* string) { log(level_err, string); }
 		void		critical(const char* string) { log(level_critical, string); }
+
+		template<typename... ARGS>
+		void		trace(const char* format, ARGS&&... args) { log(level_trace, format, std::forward<ARGS>(args)...); }
+		template<typename... ARGS>
+		void		debug(const char* format, ARGS&&... args) { log(level_debug, format, std::forward<ARGS>(args)...); }
+		template<typename... ARGS>
+		void		info(const char* format, ARGS&&... args) { log(level_info, format, std::forward<ARGS>(args)...); }
+		template<typename... ARGS>
+		void		warn(const char* format, ARGS&&... args) { log(level_warn, format, std::forward<ARGS>(args)...); }
+		template<typename... ARGS>
+		void		err(const char* format, ARGS&&... args) { log(level_err, format, std::forward<ARGS>(args)...); }
+		template<typename... ARGS>
+		void		critical(const char* format, ARGS&&... args) { log(level_critical, format, std::forward<ARGS>(args)...); }
 
 	private:
 		std::unique_ptr<ilog_writer> m_emitter = nullptr;

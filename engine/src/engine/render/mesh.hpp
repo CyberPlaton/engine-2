@@ -1,25 +1,28 @@
 #pragma once
-#include <engine/render/vertices.hpp>
-#include <engine/math/vec3.hpp>
-#include <rttr.h>
 #include <cstdint>
 #include <vector>
+#include <engine/math/vec3.hpp>
+#include <engine/math/vec4.hpp>
+#include <engine/iresource_manager_service.hpp>
+#include <rttr.h>
+#include <bgfx.h>
 
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	class cmesh final
+	struct smesh_snapshot final
 	{
-	public:
-		struct ssnapshot
-		{
-			math::vec3_t m_v1 = { -0.5f, 0.5f, 0.0f };
-			math::vec3_t m_v2 = { 0.5f, 0.5f, 0.0f };
-			math::vec3_t m_v3 = { -0.5f, -0.5f, 0.0f };
-			math::vec3_t m_v4 = { 0.5f, -0.5f, 0.0f };
-			RTTR_ENABLE();
-		};
+		math::vec3_t m_v1 = { -0.5f, 0.5f, 0.0f };
+		math::vec3_t m_v2 = { 0.5f, 0.5f, 0.0f };
+		math::vec3_t m_v3 = { -0.5f, -0.5f, 0.0f };
+		math::vec3_t m_v4 = { 0.5f, -0.5f, 0.0f };
+		math::vec4_t m_source = { 0.0f, 0.0f, 1.0f, 1.0f };
+		RTTR_ENABLE();
+	};
 
+	//------------------------------------------------------------------------------------------------------------------------
+	struct smesh final
+	{
 		struct sgroup
 		{
 			struct sprimitive
@@ -39,9 +42,20 @@ namespace kokoro
 			unsigned m_index_count = 0;
 		};
 
-	private:
 		std::vector<sgroup> m_groups;
 		bgfx::VertexLayout m_layout;
+	};
+
+	//------------------------------------------------------------------------------------------------------------------------
+	class cmesh_resource_manager_service final : public iresource_manager_service<smesh, smesh_snapshot>
+	{
+	public:
+		cmesh_resource_manager_service() = default;
+		~cmesh_resource_manager_service() = default;
+
+	protected:
+		smesh			do_instantiate(const smesh_snapshot* snaps) override final;
+		void			do_destroy(smesh* inst) override final;
 	};
 
 } //- kokoro

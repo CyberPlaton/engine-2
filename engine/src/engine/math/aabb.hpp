@@ -13,7 +13,9 @@ namespace kokoro::math
 		caabb(const vec2_t& bottom_left, const vec2_t& top_right);
 		caabb(float cx, float cy, float hw, float hh);
 
-		operator box2d::b2AABB() const { return m_aabb; }
+		operator						box2d::b2AABB() const { return m_aabb; }
+		inline const box2d::b2AABB&		aabb() const { return m_aabb; }
+		inline box2d::b2AABB&			aabb() { return m_aabb; }
 
 	private:
 		box2d::b2AABB m_aabb = { 0 };

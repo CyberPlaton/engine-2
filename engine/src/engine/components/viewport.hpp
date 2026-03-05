@@ -1,17 +1,17 @@
 #pragma once
 #include <engine/world/component.hpp>
 #include <engine/world/world.hpp>
-#include <engine/math/mat4.hpp>
+#include <bgfx.h>
 
 namespace kokoro::world::component
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	struct scamera final : public kokoro::ecs::icomponent
+	struct sviewport final : public kokoro::ecs::icomponent
 	{
-		DECLARE_COMPONENT(scamera);
+		DECLARE_COMPONENT(sviewport);
 
-		math::mat4_t m_view;
-		math::mat4_t m_projection;
+		bgfx::FrameBufferHandle m_framebuffer;
+		bgfx::ViewId m_view;
 
 		RTTR_ENABLE(kokoro::ecs::icomponent);
 	};

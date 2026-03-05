@@ -12,17 +12,8 @@
 
 namespace kokoro
 {
-	namespace
-	{
-		std::unordered_map<const char*, seffect> instance_cache;
-		std::unordered_map<const char*, seffect_snapshot> snapshot_cache;
-		core::cmutex instance_mutex;
-		core::cmutex snapshot_mutex;
-
-	} //- unnamed
-
 	//------------------------------------------------------------------------------------------------------------------------
-	seffect* instantiate_effect(const seffect_snapshot& snapshot, const char* name)
+	seffect ceffect_resource_manager_service::do_instantiate(const seffect_snapshot* snaps)
 	{
 		seffect effect;
 		auto& vfs = instance().service<cvirtual_filesystem_service>();
@@ -50,9 +41,9 @@ namespace kokoro
 		{
 			//- Check whether we are loading an 'fx' file that contains a pixel and vertex shader in one file,
 			//- or just a regular situation with one shader per file.
-			if (snapshot.m_vs.m_filepath_or_name == snapshot.m_ps.m_filepath_or_name)
+			if (snaps->m_vs.m_filepath_or_name == snaps->m_ps.m_filepath_or_name)
 			{
-				filepath_t fx_filepath = snapshot.m_vs.m_filepath_or_name;
+				filepath_t fx_filepath = snaps->m_vs.m_filepath_or_name;
 
 				if (!vfs.exists(fx_filepath))
 				{
@@ -64,8 +55,8 @@ namespace kokoro
 					else
 					{
 						instance().service<clog_service>().err(fmt::format("Could not find include file at '{}'",
-							snapshot.m_vs.m_filepath_or_name).c_str());
-						return nullptr;
+							snaps->m_vs.m_filepath_or_name).c_str());
+						return {};
 					}
 				}
 
@@ -102,14 +93,14 @@ namespace kokoro
 			{
 				//- Load vertex shader
 				{
-					const auto filepath = filepath_t(snapshot.m_vs.m_filepath_or_name);
+					const auto filepath = filepath_t(snaps->m_vs.m_filepath_or_name);
 
 					scompile_options options;
 					options.m_name = filepath.filename().generic_string();
 					options.m_type = scompile_options::shader_type_vertex;
 					options.m_include_dirs.push_back(filepath.parent_path().generic_string());
 
-					switch (snapshot.m_vs.m_type)
+					switch (snaps->m_vs.m_type)
 					{
 					case seffect_snapshot::type_file:
 					{
@@ -128,25 +119,24 @@ namespace kokoro
 					}
 					case seffect_snapshot::type_embedded:
 					{
-						return nullptr;
-						break;
+						return {};
 					}
 					default:
 					case seffect_snapshot::type_none:
-						return nullptr;
+						return {};
 					}
 				}
 
 				//- Load pixel shader
 				{
-					const auto filepath = filepath_t(snapshot.m_ps.m_filepath_or_name);
+					const auto filepath = filepath_t(snaps->m_ps.m_filepath_or_name);
 
 					scompile_options options;
 					options.m_name = filepath.filename().generic_string();
 					options.m_type = scompile_options::shader_type_pixel;
 					options.m_include_dirs.push_back(filepath.parent_path().generic_string());
 
-					switch (snapshot.m_ps.m_type)
+					switch (snaps->m_ps.m_type)
 					{
 					case seffect_snapshot::type_file:
 					{
@@ -165,12 +155,11 @@ namespace kokoro
 					}
 					case seffect_snapshot::type_embedded:
 					{
-						return nullptr;
-						break;
+						return {};
 					}
 					default:
 					case seffect_snapshot::type_none:
-						return nullptr;
+						return {};
 					}
 				}
 
@@ -179,7 +168,7 @@ namespace kokoro
 			}
 
 			//- Load uniform data
-			for (const auto& snapshot_uniform : snapshot.m_uniforms)
+			for (const auto& snapshot_uniform : snaps->m_uniforms)
 			{
 				auto& uniform = effect.m_uniforms.emplace_back();
 				uniform = std::move(create_uniform(uniform.m_name.c_str(), uniform.m_type));
@@ -190,107 +179,33 @@ namespace kokoro
 				}
 			}
 		}
-
-
-		core::cscoped_mutex m(instance_mutex);
-
-		//- Store created effect to instance cache
-		if (auto [it, result] = instance_cache.emplace(std::piecewise_construct,
-			std::forward_as_tuple(name),
-			std::forward_as_tuple(std::move(effect))); result)
-		{
-			return &it->second;
-		}
-		return nullptr;
-	}
-
-	//- Load and cache an effect snapshot from disk
-	//------------------------------------------------------------------------------------------------------------------------
-	seffect_snapshot* effect_snapshot_from_file(const char* filepath)
-	{
-		if (const auto it = snapshot_cache.find(filepath); it != snapshot_cache.end())
-		{
-			return &it->second;
-		}
-
-		auto& vfs = instance().service<cvirtual_filesystem_service>();
-		filepath_t path(filepath);
-
-		if (!vfs.exists(path))
-		{
-			//- Try resolving filepath using virtual file system
-			if (const auto [result, p] = vfs.resolve(path); result)
-			{
-				path = p;
-			}
-			else
-			{
-				instance().service<clog_service>().err(fmt::format("Could not find effect snapshot file at '{}'",
-					filepath).c_str());
-				return nullptr;
-			}
-		}
-
-		if (auto file = vfs.open(path, file_options_read | file_options_text); file)
-		{
-			auto future = file->read_async();
-
-			while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
-			file->close();
-
-			auto mem = future.get();
-
-			if (mem && !mem->empty())
-			{
-				if (auto var = core::from_json_blob(rttr::type::get<seffect_snapshot>(), mem->data(), mem->size()); var.is_valid())
-				{
-					core::cscoped_mutex m(snapshot_mutex);
-
-					if (auto [it, result] = snapshot_cache.emplace(std::piecewise_construct,
-						std::forward_as_tuple(filepath),
-						std::forward_as_tuple(std::move(var.get_value<seffect_snapshot>()))); result)
-					{
-						return &it->second;
-					}
-				}
-			}
-		}
-		return nullptr;
+		return {};
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	void destroy_effect(const char* name)
+	void ceffect_resource_manager_service::do_destroy(seffect* inst)
 	{
-		if (auto it = instance_cache.find(name); it != instance_cache.end())
+		//- Destroy the uniforms if effect is using any
+		for (auto& uniform : inst->m_uniforms)
 		{
-			auto& effect = it->second;
-
-			//- Destroy the uniforms if effect is using any
-			for (auto& uniform : effect.m_uniforms)
+			if (bgfx::isValid(uniform.m_handle))
 			{
-				if (bgfx::isValid(uniform.m_handle))
-				{
-					bgfx::destroy(uniform.m_handle);
-				}
+				bgfx::destroy(uniform.m_handle);
 			}
+		}
 
-			//- Destroy the vertex and pixel shaders
-			if (bgfx::isValid(effect.m_vs.m_handle))
-			{
-				bgfx::destroy(effect.m_vs.m_handle);
-			}
-			if (bgfx::isValid(effect.m_ps.m_handle))
-			{
-				bgfx::destroy(effect.m_ps.m_handle);
-			}
-			if (bgfx::isValid(effect.m_program))
-			{
-				bgfx::destroy(effect.m_program);
-			}
-
-			core::cscoped_mutex m(instance_mutex);
-
-			instance_cache.erase(name);
+		//- Destroy the vertex and pixel shaders
+		if (bgfx::isValid(inst->m_vs.m_handle))
+		{
+			bgfx::destroy(inst->m_vs.m_handle);
+		}
+		if (bgfx::isValid(inst->m_ps.m_handle))
+		{
+			bgfx::destroy(inst->m_ps.m_handle);
+		}
+		if (bgfx::isValid(inst->m_program))
+		{
+			bgfx::destroy(inst->m_program);
 		}
 	}
 

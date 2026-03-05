@@ -1,5 +1,4 @@
 #pragma once
-#include <core/config.hpp>
 #include <rttr.h>
 #include <flecs.h>
 

@@ -8,7 +8,10 @@
 #include <engine/scene.hpp>
 #include <engine/math/aabb.hpp>
 #include <engine/math/ray.hpp>
+#include <engine/services/log_service.hpp>
+#include <engine.hpp>
 #include <box2d.h>
+#include <optional>
 
 namespace kokoro
 {
@@ -253,12 +256,6 @@ namespace kokoro
 
 		} //- components
 
-		namespace plugins
-		{
-			void								import(sworld& w, std::vector<std::string> plugins);			//- Import plugins of given type for world
-
-		} //- plugins
-
 		namespace modules
 		{
 			void								import(sworld& w, std::vector<std::string> modules);			//- Import modules for a world
@@ -275,8 +272,8 @@ namespace kokoro
 					}
 					else
 					{
-						log_error(fmt::format("Failed loading dependency module '{}' for world '{}' and module '{}', as the module is not reflected to RTTR!",
-							m.data(), w.name(), cfg.m_name.data()));
+						instance().service<clog_service>().err("Failed loading dependency module '{}' for world '{}' and module '{}', as the module is not reflected to RTTR!",
+							m.data(), w.name(), cfg.m_name.data());
 					}
 
 					w.m_world.module<TModule>(cfg.m_name.data());
@@ -291,8 +288,8 @@ namespace kokoro
 						}
 						else
 						{
-							log_error(fmt::format("Failed creating component '{}' for world '{}' and module '{}', as the component is not reflected to RTTR!",
-								c.data(), w.name(), cfg.m_name.data()));
+							instance().service<clog_service>().err("Failed creating component '{}' for world '{}' and module '{}', as the component is not reflected to RTTR!",
+								c.data(), w.name(), cfg.m_name.data());
 						}
 					}
 
@@ -306,8 +303,8 @@ namespace kokoro
 						}
 						else
 						{
-							log_error(fmt::format("Failed creating system '{}' for world '{}' and module '{}', as the system is not reflected to RTTR!",
-								s.data(), w.name(), cfg.m_name.data()));
+							instance().service<clog_service>().err("Failed creating system '{}' for world '{}' and module '{}', as the system is not reflected to RTTR!",
+								s.data(), w.name(), cfg.m_name.data());
 						}
 					}
 				}
@@ -317,9 +314,6 @@ namespace kokoro
 			void								create_system(sworld& w, const kokoro::system::sconfig& cfg,	//- Create a system for world with given configuration and callback
 													kokoro::system::system_callback_t<TComps...> callback)
 			{
-				CORE_ASSERT(!(algorithm::bit_check(cfg.m_flags, system::system_flag_multithreaded) &&
-					algorithm::bit_check(cfg.m_flags, system::system_flag_immediate)), "A system cannot be multithreaded and immediate at the same time!");
-
 				auto builder = w.m_world.system<TComps...>(cfg.m_name.c_str());
 
 				//- Set options that are required before system entity creation
@@ -336,7 +330,8 @@ namespace kokoro
 
 				if (const auto duplicate_system = find_system(w, cfg.m_name); duplicate_system)
 				{
-					log_warn(fmt::format("Trying to create a system with same name twice '{}'. Second definition ignored!", cfg.m_name));
+					instance().service<clog_service>().warn("Trying to create a system with same name twice '{}'. Second definition ignored!",
+						cfg.m_name);
 					return;
 				}
 
@@ -365,8 +360,8 @@ namespace kokoro
 							}
 							else
 							{
-								log_error(fmt::format("Dependency (run after) system '{}' for system '{}' could not be found!",
-									after, cfg.m_name));
+								instance().service<clog_service>().err("Dependency (run after) system '{}' for system '{}' could not be found!",
+									after, cfg.m_name);
 							}
 						}
 					}
@@ -385,8 +380,8 @@ namespace kokoro
 							}
 							else
 							{
-								log_error(fmt::format("Dependent (run before) system '{}' for system '{}' could not be found!",
-									before, cfg.m_name));
+								instance().service<clog_service>().err("Dependent (run before) system '{}' for system '{}' could not be found!",
+									before, cfg.m_name);
 							}
 						}
 					}

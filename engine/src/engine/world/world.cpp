@@ -2,15 +2,15 @@
 #include <engine/world/prefab.hpp>
 #include <engine/services/thread_service.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
-#include <engine/services/log_service.hpp>
-#include <engine/animation/module.hpp>
 #include <engine/components/sprite.hpp>
 #include <engine/components/camera.hpp>
 #include <engine/components/transforms.hpp>
-#include <core/logging.hpp>
+#include <engine/components/viewport.hpp>
+#include <core/algorithm.hpp>
 #include <core/hash.hpp>
 #include <core/mutex.hpp>
-#include <engine.hpp>
+#include <core/uuid.hpp>
+#include <registrator.hpp>
 #include <array>
 #include <unordered_set>
 #include <unordered_map>
@@ -147,6 +147,7 @@ namespace kokoro
 				comps_t m_comps;
 			};
 
+			constexpr auto C_MAXIMUM = std::numeric_limits<uint64_t>().max();
 			core::cmutex mutex;
 			std::unordered_map<uint64_t, sworld> cache;
 			std::unordered_map<int, filepath_t> paths;
@@ -173,19 +174,6 @@ namespace kokoro
 					if (const auto m = t.get_method("config"); m.is_valid())
 					{
 						return m.invoke({}).convert<kokoro::system::sconfig>();
-					}
-				}
-				return {};
-			}
-
-			//------------------------------------------------------------------------------------------------------------------------
-			core::plugin::sconfig get_plugin_config(std::string_view type)
-			{
-				if (const auto t = rttr::type::get_by_name(type.data()); t.is_valid())
-				{
-					if (const auto m = t.get_method("config"); m.is_valid())
-					{
-						return m.invoke({}).convert<core::plugin::sconfig>();
 					}
 				}
 				return {};
@@ -385,8 +373,7 @@ namespace kokoro
 				if (const auto it = m_proxies.find(id->m_uuid); it != m_proxies.end())
 				{
 					auto& proxy = m_proxies[id->m_uuid];
-					const auto* sprite = e.get<render::component::ssprite>();
-					const auto* transform = e.get<render::component::sworld_transform>();
+					const auto* transform = e.get<component::sworld_transform>();
 					proxy.m_aabb = transform->m_aabb;
 					box2d::b2DynamicTree_MoveProxy(&m_quad_tree, proxy.m_id, transform->m_aabb);
 				}
@@ -410,8 +397,7 @@ namespace kokoro
 		void sworld::sproxy_manager::create_proxy(flecs::entity e)
 		{
 			const auto* id = e.get<components::sidentifier>();
-			const auto* sprite = e.get<render::component::ssprite>();
-			const auto* transform = e.get<render::component::sworld_transform>();
+			const auto* transform = e.get<component::sworld_transform>();
 			const auto data_id = user_data_id(e);
 			auto& proxy = m_proxies[id->m_uuid];
 			proxy.m_aabb = transform->m_aabb;
@@ -448,7 +434,6 @@ namespace kokoro
 				}
 			}
 
-			CORE_ASSERT(false, "Entity with given uuid hash does not exist!");
 			static sproxy S_DUMMY;
 			return S_DUMMY;
 		}
@@ -479,19 +464,20 @@ namespace kokoro
 			w.component<components::tag::sentity>();
 			w.component<components::tag::sinvisible>();
 			w.component<components::tag::ssystem>();
-			w.component<render::component::srendercamera>();
-			w.component<render::component::ssprite>();
-			w.component<render::component::slocal_transform>();
-			w.component<render::component::sworld_transform>();
+			w.component<component::scamera>();
+			w.component<component::sviewport>();
+			w.component<component::ssprite>();
+			w.component<component::slocal_transform>();
+			w.component<component::sworld_transform>();
 
 			m_proxy_observer = w
-				.observer<render::component::ssprite, render::component::slocal_transform, components::sidentifier>()
+				.observer<component::ssprite, component::slocal_transform, components::sidentifier>()
 				.event(flecs::OnAdd)
 				.event(flecs::OnRemove)
 				.ctx(this)
 				.each([](flecs::iter& it, uint64_t i,
-					render::component::ssprite&,
-					render::component::slocal_transform&,
+					component::ssprite&,
+					component::slocal_transform&,
 					components::sidentifier& id)
 					{
 						if (auto* world = reinterpret_cast<sworld*>(it.ctx()); world)
@@ -530,13 +516,13 @@ namespace kokoro
 							//- otherwise the engine will not recognize them as correct components.
 							if (const auto last = string.find_last_of("."); last != std::string::npos)
 							{
-								const auto is_tag = string_utils::find_substr(string, "tag.") != std::string::npos;
+								const auto is_tag = string.find(".tag") != std::string::npos;
 								auto c = string.substr(last + 1);
 								if (is_tag) { c = fmt::format("tag::{}", c); }
 
 								if (it.event() == flecs::OnAdd)
 								{
-									log_debugf("Component added '{}({})' to entity '{}'",
+									instance().service<clog_service>().debug("Component added '{}({})' to entity '{}'",
 										c, string, entity.id());
 
 									//- name of the component will be in form 'ecs.transform', we have to format the name first
@@ -544,7 +530,7 @@ namespace kokoro
 								}
 								else if (it.event() == flecs::OnRemove)
 								{
-									log_debugf("Component removed '{}({})' from entity '{}'",
+									instance().service<clog_service>().debug("Component removed '{}({})' from entity '{}'",
 										c, string, entity.id());
 
 									world->m_entity_comps[entity].erase(c);
@@ -553,13 +539,14 @@ namespace kokoro
 						}
 					});
 
-			m_transform_tracker = query::change_tracker<render::component::slocal_transform>(*this);
+			m_transform_tracker = query::change_tracker<component::slocal_transform>(*this);
 		}
 
 		//------------------------------------------------------------------------------------------------------------------------
 		sworld::~sworld()
 		{
-			log_debug(fmt::format("Freeing world '{}'", this->name()));
+			instance().service<clog_service>().debug("Freeing world '{}'",
+				this->name());
 
 			box2d::b2DynamicTree_Destroy(&m_proxy_manager.m_quad_tree);
 			m_proxy_observer.destruct();
@@ -569,7 +556,7 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		bool sworld::foreground() const
 		{
-			return algorithm::bit_check(m_cfg.m_flags, world_flag_foreground) && id() == current_active_world;
+			return !!(m_cfg.m_flags & world_flag_foreground) && id() == current_active_world;
 		}
 
 		//------------------------------------------------------------------------------------------------------------------------
@@ -581,23 +568,20 @@ namespace kokoro
 		namespace components
 		{
 			//------------------------------------------------------------------------------------------------------------------------
-			bool sidentifier::show_ui(editor::ceditor_context_holder*, rttr::variant& comp)
+			bool sidentifier::show_ui(rttr::variant& comp)
 			{
-				CORE_ASSERT(comp.get_type() == rttr::type::get<sidentifier>(), "Invalid type");
 				return false;
 			}
 
 			//------------------------------------------------------------------------------------------------------------------------
-			bool shierarchy::show_ui(editor::ceditor_context_holder* ec, rttr::variant& comp)
+			bool shierarchy::show_ui(rttr::variant& comp)
 			{
-				CORE_ASSERT(comp.get_type() == rttr::type::get<shierarchy>(), "Invalid type");
 				return false;
 			}
 
 			//------------------------------------------------------------------------------------------------------------------------
-			bool sprefab::show_ui(editor::ceditor_context_holder* ec, rttr::variant& comp)
+			bool sprefab::show_ui(rttr::variant& comp)
 			{
-				CORE_ASSERT(comp.get_type() == rttr::type::get<sprefab>(), "Invalid type");
 				return false;
 			}
 
@@ -625,69 +609,11 @@ namespace kokoro
 
 		} //- components
 
-		namespace plugins
-		{
-			//------------------------------------------------------------------------------------------------------------------------
-			void import(sworld& w, std::vector<std::string> plugins)
-			{
-				for (const auto& p : plugins)
-				{
-					auto cfg = get_plugin_config(p);
-
-					//- Import dependency plugins
-					{
-						std::vector<std::string> deps; deps.reserve(cfg.m_plugins.size());
-						for (const auto& d : cfg.m_plugins)
-						{
-							if (const auto t = rttr::type::get_by_name(d); t.is_valid())
-							{
-								deps.emplace_back(d);
-							}
-							else
-							{
-								log_error(fmt::format("Failed adding dependency plugin '{}' for world '{}' and plugin '{}', as the plugin is not reflected to RTTR!",
-									p.data(), w.name(), d.data()));
-							}
-						}
-
-						if (!deps.empty())
-						{
-							import(w, deps);
-						}
-					}
-
-					//- Load modules required for plugin
-					{
-						std::vector<std::string> mods; mods.reserve(cfg.m_modules.size());
-						for (const auto& m : cfg.m_modules)
-						{
-							if (const auto t = rttr::type::get_by_name(m); t.is_valid())
-							{
-								mods.emplace_back(m);
-							}
-							else
-							{
-								log_error(fmt::format("Failed creating module '{}' for world '{}' and plugin '{}', as the plugin is not reflected to RTTR!",
-									p.data(), w.name(), m.data()));
-							}
-						}
-
-						modules::import(w, mods);
-					}
-
-
-				}
-			}
-
-		} //- plugins
-
 		namespace modules
 		{
 			//------------------------------------------------------------------------------------------------------------------------
 			void import(sworld& w, std::vector<std::string> modules)
 			{
-				CORE_ZONE;
-
 				std::vector<simported_module> unsorted_modules;
 				std::vector<std::string> sorted_modules;
 
@@ -699,19 +625,18 @@ namespace kokoro
 
 						if (config.m_name.empty())
 						{
-							log_error(fmt::format("Failed to import an unreflected module of type '{}'!", m));
+							instance().service<clog_service>().err("Failed to import an unreflected module of type '{}'!",
+								m);
 							return;
 						}
 
 						//- Do not process module if already imported
-						if (const auto it = algorithm::find_if(unsorted_modules.begin(), unsorted_modules.end(),
-							[&](const auto& m)
-							{
-								return m.m_name == config.m_name;
-
-							}); it != unsorted_modules.end())
+						for (const auto& m : unsorted_modules)
 						{
-							return;
+							if (m.m_name == config.m_name)
+							{
+								return;
+							}
 						}
 
 						//- Add module to the ones to be loaded without further processing
@@ -767,18 +692,15 @@ namespace kokoro
 			//------------------------------------------------------------------------------------------------------------------------
 			void create_task(sworld& w, const kokoro::system::sconfig& cfg, kokoro::system::task_callback_t callback)
 			{
-				CORE_ASSERT(!(algorithm::bit_check(cfg.m_flags, system::system_flag_multithreaded) &&
-					algorithm::bit_check(cfg.m_flags, system::system_flag_immediate)), "A system cannot be multithreaded and immediate at the same time!");
-
 				auto builder = w.m_world.system(cfg.m_name.c_str());
 
 				//- Set options that are required before system entity creation
 				{
-					if (algorithm::bit_check(cfg.m_flags, system::system_flag_multithreaded))
+					if (!!(cfg.m_flags & system::system_flag_multithreaded))
 					{
 						builder.multi_threaded();
 					}
-					else if (algorithm::bit_check(cfg.m_flags, system::system_flag_immediate))
+					else if (!!(cfg.m_flags & system::system_flag_immediate))
 					{
 						builder.immediate();
 					}
@@ -786,7 +708,8 @@ namespace kokoro
 
 				if (const auto duplicate_system = find_system(w, cfg.m_name); duplicate_system)
 				{
-					log_warn(fmt::format("Trying to create a system with same name twice '{}'. This is not allowed!", cfg.m_name));
+					instance().service<clog_service>().err("Trying to create a system with same name twice '{}'. This is not allowed!",
+						cfg.m_name);
 					return;
 				}
 
@@ -821,8 +744,8 @@ namespace kokoro
 							}
 							else
 							{
-								log_error(fmt::format("Dependency (run after) system '{}' for system '{}' could not be found!",
-									after, cfg.m_name));
+								instance().service<clog_service>().err("Dependency (run after) system '{}' for system '{}' could not be found!",
+									after, cfg.m_name);
 							}
 						}
 					}
@@ -841,8 +764,8 @@ namespace kokoro
 							}
 							else
 							{
-								log_error(fmt::format("Dependent (run before) system '{}' for system '{}' could not be found!",
-									before, cfg.m_name));
+								instance().service<clog_service>().err("Dependent (run before) system '{}' for system '{}' could not be found!",
+									before, cfg.m_name);
 							}
 						}
 					}
@@ -878,7 +801,7 @@ namespace kokoro
 			//------------------------------------------------------------------------------------------------------------------------
 			void add(sworld& w, const rttr::variant& c)
 			{
-				rttr::detail::invoke_static_function(c.get_type(), kokoro::ecs::detail::C_COMPONENT_ADD_SINGLETON_FUNC_NAME, w.m_world);
+				detail::invoke_static_function(c.get_type(), kokoro::ecs::C_COMPONENT_ADD_SINGLETON_FUNC_NAME, w.m_world);
 				w.m_active_singletons.insert(c.get_type().get_name().data());
 
 			}
@@ -886,7 +809,7 @@ namespace kokoro
 			//------------------------------------------------------------------------------------------------------------------------
 			void remove(sworld& w, const rttr::type& t)
 			{
-				rttr::detail::invoke_static_function(t, kokoro::ecs::detail::C_COMPONENT_REMOVE_SINGLETON_FUNC_NAME, w.m_world);
+				detail::invoke_static_function(t, kokoro::ecs::C_COMPONENT_REMOVE_SINGLETON_FUNC_NAME, w.m_world);
 				w.m_active_singletons.erase(t.get_name().data());
 			}
 
@@ -897,19 +820,25 @@ namespace kokoro
 			//------------------------------------------------------------------------------------------------------------------------
 			void add(sworld& w, flecs::entity e, const rttr::variant& c)
 			{
-				rttr::detail::invoke_static_function(c.get_type(), kokoro::ecs::detail::C_COMPONENT_SET_FUNC_NAME, e, c);
+				detail::invoke_static_function(c.get_type(), kokoro::ecs::C_COMPONENT_SET_FUNC_NAME, e, c);
 				w.m_entity_comps[e.id()].insert(c.get_type().get_name().data());
 			}
 
 			//------------------------------------------------------------------------------------------------------------------------
 			void remove(sworld& w, flecs::entity e, const rttr::type& t)
 			{
-				rttr::detail::invoke_static_function(t, kokoro::ecs::detail::C_COMPONENT_REMOVE_FUNC_NAME, e);
+				detail::invoke_static_function(t, kokoro::ecs::C_COMPONENT_REMOVE_FUNC_NAME, e);
 
+				std::string_view type_name = t.get_name().data();
 				auto& comps = w.m_entity_comps[e.id()];
-				if (const auto it = algorithm::find_at(comps.begin(), comps.end(), t.get_name().data()); it != comps.end())
+
+				for (const auto& ct : comps)
 				{
-					algorithm::erase_at(comps, it);
+					if (ct == type_name)
+					{
+						comps.erase(ct);
+						return;
+					}
 				}
 			}
 
@@ -917,8 +846,6 @@ namespace kokoro
 			flecs::entity create(sworld& w, std::string_view name, std::string_view uuid /*= {}*/,
 				std::string_view parent /*= {}*/, bool is_prefab /*= false*/)
 			{
-				CORE_ASSERT(!name.empty(), "Invalid operation. Cannot set empty name for entity creation!");
-
 				flecs::entity out = w.m_world.entity(name.data());
 
 				if (!is_prefab)
@@ -932,8 +859,8 @@ namespace kokoro
 
 				add<components::sidentifier>(w, out);
 				add<components::shierarchy>(w, out);
-				add<render::component::sworld_transform>(w, out);
-				add<render::component::slocal_transform>(w, out);
+				add<component::sworld_transform>(w, out);
+				add<component::slocal_transform>(w, out);
 
 				//- Identifier component holding the unique entity uuid and a name
 				auto* id = out.get_mut<components::sidentifier>();
@@ -1005,11 +932,19 @@ namespace kokoro
 					if (auto e_parent = find(w, hierarchy->m_parent.string()); e_parent.is_valid())
 					{
 						auto* hierarchy = e_parent.get_mut<components::shierarchy>();
-						const auto s = id->m_uuid.string();
-						algorithm::erase_if(hierarchy->m_children, [&](const auto& k)
+						const auto s = id->m_uuid;
+						const auto h = s.hash();
+
+						for (auto i = 0; i < hierarchy->m_children.size(); ++i)
+						{
+							const auto& k = hierarchy->m_children[i];
+
+							if (k.hash() == h)
 							{
-								return k.string() == s;
-							});
+								hierarchy->m_children.erase(hierarchy->m_children.begin() + i);
+								break;
+							}
+						}
 					}
 				}
 
@@ -1017,9 +952,15 @@ namespace kokoro
 				e.destruct();
 
 				//- Untrack entity and destroy its proxy
-				if (const auto it = algorithm::find_at(w.m_all_entities.begin(), w.m_all_entities.end(), e); it != w.m_all_entities.end())
+				for (auto i = 0; i < w.m_all_entities.size(); ++i)
 				{
-					algorithm::erase_at(w.m_all_entities, it);
+					const auto& entity = w.m_all_entities[i];
+
+					if (entity == e)
+					{
+						w.m_all_entities.erase(w.m_all_entities.begin() + i);
+						break;
+					}
 				}
 
 				w.m_proxy_manager.destroy_proxy(e);
@@ -1072,7 +1013,7 @@ namespace kokoro
 				//- Get the result for return and erase it from result map
 				const auto it = w.m_query_results.find(i);
 				rttr::variant var = std::move(it->second);
-				algorithm::erase_at(w.m_query_results, it);
+				core::erase(w.m_query_results, it);
 
 				return var;
 			}
@@ -1087,7 +1028,7 @@ namespace kokoro
 					out = it->second;
 
 					//- Result will be taken and we do not need to hold it anymore
-					algorithm::erase_at(w.m_query_results, it);
+					core::erase(w.m_query_results, it);
 				}
 				return out;
 			}
@@ -1097,8 +1038,6 @@ namespace kokoro
 				//------------------------------------------------------------------------------------------------------------------------
 				bool query_callback(int proxy_id, int user_data, void* ctx)
 				{
-					CORE_ZONE;
-
 					auto* w = reinterpret_cast<sworld*>(ctx);
 					auto& pm = w->m_proxy_manager;
 					bool result = false;
@@ -1114,8 +1053,6 @@ namespace kokoro
 
 					//- Assign query key to proxy and avaoid duplicate queries
 					auto& proxy = pm.proxy(user_data/*box2d::b2DynamicTree_GetUserData(&pm.tree(), proxy_id)*/);
-
-					CORE_ASSERT(proxy.m_entity.id() != 0, "Invalid entity inside dynamic tree");
 
 					if (proxy.m_query_key == w->m_current_query_key)
 					{
@@ -1158,8 +1095,6 @@ namespace kokoro
 				//------------------------------------------------------------------------------------------------------------------------
 				float raycast_callback(const box2d::b2RayCastInput* input, int proxy_id, int user_data, void* ctx)
 				{
-					CORE_ZONE;
-
 					//- 0.0f signals to stop and 1.0f signals to continue
 					float result = 0.0f;
 					auto* w = reinterpret_cast<sworld*>(ctx);
@@ -1176,8 +1111,6 @@ namespace kokoro
 
 					//- Assign query key to proxy and avaoid duplicate queries
 					auto& proxy = pm.proxy(user_data/*box2d::b2DynamicTree_GetUserData(&pm.tree(), proxy_id)*/);
-
-					CORE_ASSERT(proxy.m_entity.id() != 0, "Invalid entity inside dynamic tree");
 
 					if (proxy.m_query_key == w->m_current_query_key)
 					{
@@ -1222,14 +1155,14 @@ namespace kokoro
 		} //- query
 
 		//------------------------------------------------------------------------------------------------------------------------
-		entity_set_t visible_entities(const sworld& w, const aabb_t& area)
+		std::vector<flecs::entity> visible_entities(const sworld& w, const math::aabb_t& area)
 		{
 			if (const auto result = query::immediate(const_cast<sworld&>(w),
 				squery::type_all,
 				squery::intersection_aabb,
 				area); result.is_valid())
 			{
-				return result.get_value<entity_set_t>();
+				return result.get_value<std::vector<flecs::entity>>();
 			}
 			return {};
 		}
@@ -1243,8 +1176,6 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		void tick(sworld& w, float dt)
 		{
-			CORE_ZONE;
-
 			for (auto& [_, tracker] : w.m_change_trackers)
 			{
 				tracker->tick();
@@ -1288,7 +1219,7 @@ namespace kokoro
 			{
 				if (const auto type = rttr::type::get_by_name(c.m_type_name); type.is_valid())
 				{
-					rttr::detail::invoke_static_function(type, ecs::detail::C_COMPONENT_SET_FUNC_NAME.data(),
+					detail::invoke_static_function(type, ecs::C_COMPONENT_SET_FUNC_NAME.data(),
 						entity, c.m_data);
 				}
 			}
@@ -1310,21 +1241,18 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		sworld* deserialize(const nlohmann::json& json)
 		{
-			CORE_ZONE;
-
 			const auto& j_cfg = json["config"];
-			const auto cfg = core::io::from_json_object(rttr::type::get<sconfig>(), j_cfg).get_value<sconfig>();
+			const auto cfg = core::from_json_object(rttr::type::get<sconfig>(), j_cfg).get_value<sconfig>();
 
 			const auto& j_name = json["name"];
 			const auto name = j_name.get<std::string>();
-			CORE_ASSERT(!name.empty(), "Deserialized world does not have a name!");
 
 			sworld* w = nullptr;
 
 			//- Create the world entry
 			{
 				if (auto [it, result] = cache.emplace(std::piecewise_construct,
-					std::forward_as_tuple(algorithm::hash(name)),
+					std::forward_as_tuple(core::hash(name)),
 					std::forward_as_tuple(name, cfg)); result)
 				{
 					w = &it->second;
@@ -1342,7 +1270,6 @@ namespace kokoro
 
 				//- Import plugins and their modules, note that these can depend on engine and application
 				//- modules, i.e. systems and components
-				plugins::import(*w, cfg.m_plugins);
 				modules::import(*w, cfg.m_modules);
 			}
 
@@ -1351,14 +1278,14 @@ namespace kokoro
 				const auto& j_singletons = json["singletons"];
 				for (const auto& j_singleton : j_singletons)
 				{
-					const auto type_name = j_singleton[core::io::C_OBJECT_TYPE_NAME].get<std::string>();
+					const auto type_name = j_singleton[core::C_OBJECT_TYPE_NAME].get<std::string>();
 
 					rttr::variant var;
-					rttr::detail::invoke_static_function(rttr::type::get_by_name(type_name), "deserialize", var, j_singleton);
+					detail::invoke_static_function(rttr::type::get_by_name(type_name), "deserialize", var, j_singleton);
 
 					if (var.is_valid())
 					{
-						rttr::detail::invoke_static_function(rttr::type::get_by_name(type_name), "set_singleton", *w, var);
+						detail::invoke_static_function(rttr::type::get_by_name(type_name), "set_singleton", *w, var);
 					}
 				}
 			}
@@ -1377,8 +1304,6 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		nlohmann::json serialize(const sworld& w)
 		{
-			CORE_ZONE;
-
 			nlohmann::json j;
 
 			//- Convert the world to a scene and write to JSON
@@ -1397,12 +1322,13 @@ namespace kokoro
 				{
 					auto type = rttr::type::get_by_name(ct);
 
-					log_trace(fmt::format("\tbegin to serialize singleton of type '{}'", ct));
+					instance().service<clog_service>().trace("\tbegin to serialize singleton of type '{}'",
+						ct);
 
-					rttr::detail::invoke_static_function(type, "serialize", rttr::detail::invoke_static_function(type, "get_singleton", w), j["singletons"][i++]);
+					detail::invoke_static_function(type, "serialize", detail::invoke_static_function(type, "get_singleton", w), j["singletons"][i++]);
 				}
 
-				j["config"] = core::io::to_json_object(w.config());
+				j["config"] = core::to_json_object(w.config());
 				j["name"] = w.name();
 			}
 
@@ -1414,7 +1340,7 @@ namespace kokoro
 		{
 			if (const auto it = paths.find(id); it != paths.end())
 			{
-				return it->second.data();
+				return it->second.generic_string();
 			}
 			return {};
 		}
@@ -1422,40 +1348,34 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		sworld* create(std::string_view name_or_filepath, std::optional<sconfig> cfg /*= std::nullopt*/)
 		{
-			CORE_ZONE;
-
-			const auto h = algorithm::hash(name_or_filepath);
+			const auto h = core::hash(name_or_filepath);
 
 			if (const auto it = cache.find(h); it != cache.end())
 			{
 				return &it->second;
 			}
 
-			auto& vfs = cengine::instance().service<fs::cvirtual_filesystem>();
-			if (const auto world_file_scope = vfs.open_file(name_or_filepath, core::file_mode_read); world_file_scope)
+			auto& vfs = instance().service<cvirtual_filesystem_service>();
+			if (auto file = vfs.open(name_or_filepath, file_options_read | file_options_text); file)
 			{
-				const auto file = world_file_scope.file();
+				auto future = file->read_async();
 
-				if (auto future = file->read_async(); future.valid())
+				while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
+				file->close();
+
+				auto mem = future.get();
+
+				if (mem && !mem->empty())
 				{
+					auto j = nlohmann::json::parse(mem->data(), mem->data() + mem->size(), nullptr, false, true);
+
+					if (auto* w = deserialize(j); w)
 					{
-						core::casync_wait_scope world_wait_scope(future);
+						//- TODO: consider whether to store by the filepath provided or by the worlds name
+						paths[w->id()] = { w->name() };
+						return w;
 					}
-
-					auto mem = future.get();
-
-					if (mem && !mem->empty())
-					{
-						auto j = nlohmann::json::parse(mem->data(), mem->data() + mem->size(), nullptr, false, true);
-
-						if (auto* w = deserialize(j); w)
-						{
-							//- TODO: consider whether to store by the filepath provided or by the worlds name
-							paths[w->id()] = { w->name() };
-							return w;
-						}
-						return nullptr;
-					}
+					return nullptr;
 				}
 			}
 			else
@@ -1474,13 +1394,13 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		sworld* active()
 		{
-			if (current_active_world == MAXIMUM(uint64_t) ||
+			if (current_active_world == C_MAXIMUM ||
 				cache.find(current_active_world) == cache.end())
 			{
 				return nullptr;
 			}
 
-			core::cscope_mutex m(mutex);
+			core::cscoped_mutex m(mutex);
 			return &cache.at(current_active_world);
 		}
 
@@ -1488,21 +1408,20 @@ namespace kokoro
 		void promote(sworld& w)
 		{
 			//- If we have another active world at the moment, we can demote it
-			if (current_active_world != MAXIMUM(uint64_t))
+			if (current_active_world != C_MAXIMUM)
 			{
 				const auto it = cache.find(current_active_world);
-				CORE_ASSERT(it != cache.end(), "World to be set to background mode was deleted");
-
 				demote(it->second);
 			}
 
 			//- Remove background mode and set foreground mode for given world and update its flags, and set it as active
 			const auto& cfg = w.config();
 			auto flags = cfg.m_flags;
-			algorithm::bit_clear(flags, world_flag_background);
-			algorithm::bit_set(flags, world_flag_foreground);
 
-			core::cscope_mutex m(mutex);
+			flags &= ~world_flag_background;
+			flags |= world_flag_foreground;
+
+			core::cscoped_mutex m(mutex);
 			w.flags(flags);
 			current_active_world = w.id();
 		}
@@ -1513,25 +1432,26 @@ namespace kokoro
 			//- Remove foreground mode and set background mode for given world and update its flags
 			const auto& cfg = w.config();
 			auto flags = cfg.m_flags;
-			algorithm::bit_clear(flags, world_flag_foreground);
-			algorithm::bit_set(flags, world_flag_background);
 
-			core::cscope_mutex m(mutex);
+			flags &= ~world_flag_foreground;
+			flags |= world_flag_background;
+
+			core::cscoped_mutex m(mutex);
 			w.flags(flags);
 			if (current_active_world == w.id())
 			{
-				current_active_world = MAXIMUM(uint64_t);
+				current_active_world = C_MAXIMUM;
 			}
 		}
 
 		//------------------------------------------------------------------------------------------------------------------------
 		void destroy(std::string_view name_or_filepath)
 		{
-			const auto h = algorithm::hash(name_or_filepath);
+			const auto h = core::hash(name_or_filepath);
 
 			if (const auto it = cache.find(h); it != cache.end())
 			{
-				core::cscope_mutex m(mutex);
+				core::cscoped_mutex m(mutex);
 				cache.erase(it);
 			}
 		}
@@ -1539,14 +1459,14 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		void cleanup()
 		{
-			core::cscope_mutex m(mutex);
+			core::cscoped_mutex m(mutex);
 			cache.clear();
 		}
 
 		//------------------------------------------------------------------------------------------------------------------------
 		sworld* find(std::string_view name_or_filepath)
 		{
-			const auto h = algorithm::hash(name_or_filepath);
+			const auto h = core::hash(name_or_filepath);
 
 			if (const auto it = cache.find(h); it != cache.end())
 			{
@@ -1562,30 +1482,10 @@ namespace kokoro
 		}
 
 		//------------------------------------------------------------------------------------------------------------------------
-		aabb_t visible_area(const sworld& w, float width_scale /*= render::C_WORLD_VISIBLE_AREA_SCALE_X*/,
+		math::aabb_t visible_area(const sworld& w, float width_scale /*= render::C_WORLD_VISIBLE_AREA_SCALE_X*/,
 			float height_scale /*= render::C_WORLD_VISIBLE_AREA_SCALE_Y*/)
 		{
-			aabb_t output;
-
-			if (auto e = query::one<const render::component::srendercamera>(w, [](const render::component::srendercamera& c)
-				{
-					//- TODO: currently we assume there is only one camera at a time in the world
-					return true;
-				}); e.is_valid())
-			{
-				const auto& c = *e.get<render::component::srendercamera>();
-				//- Compute the AABB we are currently seeing based on the camera position and the screen width and height
-				const float screen_width = (float)raylib::GetRenderWidth();
-				const float screen_height = (float)raylib::GetRenderHeight();
-				const float half_world_width = (screen_width * 0.5f / c.m_camera.m_zoom) * width_scale;
-				const float half_world_height = (screen_height * 0.5f / c.m_camera.m_zoom) * height_scale;
-				const float cx = c.m_camera.m_world_target.x;
-				const float cy = c.m_camera.m_world_target.y;
-				output.m_aabb.lowerBound.x = cx - half_world_width;
-				output.m_aabb.upperBound.x = cx + half_world_width;
-				output.m_aabb.lowerBound.y = cy - half_world_height;
-				output.m_aabb.upperBound.y = cy + half_world_height;
-			}
+			math::aabb_t output;
 			return output;
 		}
 
@@ -1598,7 +1498,7 @@ RTTR_REGISTRATION
 	using namespace kokoro::world;
 	using namespace kokoro::world::components;
 	
-	rttr::detail::default_constructor<std::vector<core::cuuid>>();
+	rttr::detail::default_constructor<std::vector<kokoro::core::cuuid>>();
 
 	//------------------------------------------------------------------------------------------------------------------------
 	REGISTER_TAG(sinvisible);

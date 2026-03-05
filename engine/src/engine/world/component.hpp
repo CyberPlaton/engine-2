@@ -157,6 +157,8 @@ struct __VA_ARGS__ c final : public kokoro::ecs::icomponent \
 	RTTR_ENABLE(kokoro::ecs::icomponent); \
 };
 
+#define STRINGIFY(s) #s
+
 //-- Use macro to register tag type to RTTR. Note that your tag is required to be inside 'tag' namespace.
 //-------------------------------------------------------------------------------------------------------------------------
 #define REGISTER_TAG(c) \

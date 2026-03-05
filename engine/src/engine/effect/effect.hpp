@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <core/memory.hpp>
+#include <engine/iresource_manager_service.hpp>
 
 namespace kokoro
 {
@@ -40,7 +41,6 @@ namespace kokoro
 		std::vector<suniform> m_uniforms;
 	};
 
-	//- Runtime instance of an effect created from a snapshot. From the same snapshot we can have many effect instances
 	//------------------------------------------------------------------------------------------------------------------------
 	struct seffect final
 	{
@@ -56,9 +56,18 @@ namespace kokoro
 		bgfx::ProgramHandle m_program = BGFX_INVALID_HANDLE;
 	};
 
-	seffect_snapshot*	effect_snapshot_from_file(const char* filepath);
-	seffect*			instantiate_effect(const seffect_snapshot& snapshot, const char* name);
-	void				destroy_effect(const char* name);
+	//------------------------------------------------------------------------------------------------------------------------
+	class ceffect_resource_manager_service final : public iresource_manager_service<seffect, seffect_snapshot>
+	{
+	public:
+		ceffect_resource_manager_service() = default;
+		~ceffect_resource_manager_service() = default;
+
+	protected:
+		seffect			do_instantiate(const seffect_snapshot* snaps) override final;
+		void			do_destroy(seffect* inst) override final;
+	};
+
 	suniform			create_uniform(const char* name, suniform::type type);
 	void				update_uniform(suniform& uniform, rttr::variant&& data);
 

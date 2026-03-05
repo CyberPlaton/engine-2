@@ -1,4 +1,4 @@
-#include <engine/components/camera.hpp>
+#include <engine/components/viewport.hpp>
 #include <registrator.hpp>
 
 namespace kokoro::world::component
@@ -11,5 +11,5 @@ RTTR_REGISTRATION
 	using namespace kokoro::world::component;
 
 	//------------------------------------------------------------------------------------------------------------------------
-	rttr::ccomponent<scamera>("scamera");
+	rttr::ccomponent<sviewport>("sviewport");
 }

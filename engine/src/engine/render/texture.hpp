@@ -2,11 +2,12 @@
 #include <bgfx.h>
 #include <bimg.h>
 #include <string>
+#include <engine/iresource_manager_service.hpp>
 
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	struct stexture final
+	struct stexture
 	{
 		using format = bgfx::TextureFormat::Enum;
 
@@ -20,8 +21,16 @@ namespace kokoro
 		std::string m_texture;
 	};
 
-	stexture_snapshot*	texture_snapshot_from_file(const char* filepath);
-	stexture*			instantiate_texture(const stexture_snapshot& snapshot, const char* name);
-	void				destroy_texture(const char* name);
+	//------------------------------------------------------------------------------------------------------------------------
+	class ctexture_resource_manager_service final : public iresource_manager_service<stexture, stexture_snapshot, false>
+	{
+	public:
+		ctexture_resource_manager_service() = default;
+		~ctexture_resource_manager_service() = default;
+
+	protected:
+		stexture		do_instantiate(const stexture_snapshot* snaps) override final;
+		void			do_destroy(stexture* inst) override final;
+	};
 
 } //- kokoro
