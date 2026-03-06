@@ -111,6 +111,11 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void crender_service::shutdown()
 	{
+		bgfx::destroy(m_geometry_framebuffer);
+		bgfx::destroy(m_merge_program);
+		bgfx::destroy(m_apply_back0_program);
+		bgfx::destroy(m_apply_back1_program);
+		bgfx::destroy(m_texture_chain_uniform);
 		bgfx::shutdown();
 	}
 
