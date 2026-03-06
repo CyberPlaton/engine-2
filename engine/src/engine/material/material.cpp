@@ -9,6 +9,12 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
+	bool cmaterial_resource_manager_service::init()
+	{
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
 	smaterial cmaterial_resource_manager_service::do_instantiate(const smaterial_snapshot* snaps)
 	{
 		auto& tms = instance().service<ctexture_resource_manager_service>();

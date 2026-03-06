@@ -19,12 +19,25 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	bool cengine::init()
 	{
+		for (const auto& l : m_layers)
+		{
+			if (!l->init())
+			{
+				return false;
+			}
+		}
+
 		for (const auto& s : m_services)
 		{
 			if (!s->init())
 			{
 				return false;
 			}
+		}
+
+		for (const auto& l : m_layers)
+		{
+			l->post_init();
 		}
 
 		for (const auto& s : m_services)
@@ -38,6 +51,11 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void cengine::shutdown()
 	{
+		for (const auto& l : m_layers)
+		{
+			l->shutdown();
+		}
+
 		for (const auto& s : m_services)
 		{
 			s->shutdown();
@@ -60,6 +78,11 @@ namespace kokoro
 			for (const auto& s : m_services)
 			{
 				s->update(dt);
+			}
+
+			for (const auto& l : m_layers)
+			{
+				l->update(dt);
 			}
 
 			rs.end_frame();

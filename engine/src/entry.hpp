@@ -1,21 +1,28 @@
 #pragma once
 
+namespace kokoro
+{
+	class cengine;
+} //- kokoro
+
 namespace kokoro::entry
 {
-	int main(int argc, char* argv[]);
+	typedef void(*config_func_t)(cengine&);
+
+	int main(config_func_t cfg, int argc, char* argv[]);
 
 } //- kokoro::entry
 
 #if PLATFORM_WINDOWS
-	#define MAIN \
+	#define MAIN(cfg) \
 	int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) \
 	{ \
-		return kokoro::entry::main(0, nullptr); \
+		return kokoro::entry::main(cfg, 0, nullptr); \
 	}
 #else
-	#define MAIN \
+	#define MAIN(cfg) \
 	int main(int argc, char* argv[]) \
 	{ \
-		return kokoro::entry::main(argc, argv); \
+		return kokoro::entry::main(cfg, argc, argv); \
 	}
 #endif

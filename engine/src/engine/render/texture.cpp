@@ -8,6 +8,12 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
+	bool ctexture_resource_manager_service::init()
+	{
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
 	stexture ctexture_resource_manager_service::do_instantiate(const stexture_snapshot* snaps)
 	{
 		auto& vfs = instance().service<cvirtual_filesystem_service>();

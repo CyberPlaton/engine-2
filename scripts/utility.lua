@@ -527,6 +527,8 @@ function add_project_main_app(name, build_options, define_flags, thirdparty_deps
 		externalincludedirs{"include"}
 		externalincludedirs{additional_includes}
 		includedirs{additional_includes}
+		externalincludedirs{"src"}
+		includedirs{"src"}
 		set_include_path_to_engine()
 		targetdir(path.join(VENDOR_DIR, OUTDIR))
 		objdir(path.join(VENDOR_DIR, OUTDIR, ".obj"))

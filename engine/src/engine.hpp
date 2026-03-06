@@ -1,5 +1,6 @@
 #pragma once
 #include <engine/iservice.hpp>
+#include <engine/ilayer.hpp>
 #include <unordered_map>
 #include <typeinfo>
 #include <memory>
@@ -24,12 +25,16 @@ namespace kokoro
 		template<typename T, typename... ARGS>
 		cengine&	new_service(ARGS... args);
 
+		template<typename T, typename... ARGS>
+		cengine&	new_layer(ARGS... args);
+
 		template<typename T>
 		T&			service() const;
 
 	private:
 		std::unordered_map<uint64_t, uint64_t> m_services_mapping;
 		std::vector<std::unique_ptr<iservice>> m_services;
+		std::vector<std::unique_ptr<ilayer>> m_layers;
 		std::atomic_bool m_running = false;
 	};
 
@@ -43,6 +48,16 @@ namespace kokoro
 			std::make_unique<T>(std::forward<ARGS>(args)...)
 		));
 		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename T, typename... ARGS>
+	cengine& cengine::new_layer(ARGS... args)
+	{
+		m_layers.push_back(std::move(
+			std::make_unique<T>(std::forward<ARGS>(args)...)
+		));
+		return* this;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

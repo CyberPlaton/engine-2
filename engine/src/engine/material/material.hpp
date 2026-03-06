@@ -57,6 +57,8 @@ namespace kokoro
 		cmaterial_resource_manager_service() = default;
 		~cmaterial_resource_manager_service() = default;
 
+		bool			init() override final;
+
 	protected:
 		smaterial		do_instantiate(const smaterial_snapshot* snaps) override final;
 		void			do_destroy(smaterial* inst) override final;

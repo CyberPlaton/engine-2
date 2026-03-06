@@ -35,10 +35,11 @@ namespace kokoro
 
 	protected:
 		using hashed_path_t = uint64_t;
-		std::unordered_map<hashed_path_t, TSnapshot> m_snapshots;
-		std::vector<sinstance> m_instances;
+
 		mutable core::cmutex m_snapshot_mutex;
 		mutable core::cmutex m_instances_mutex;
+		std::unordered_map<hashed_path_t, TSnapshot> m_snapshots;
+		std::vector<sinstance> m_instances;
 
 	protected:
 		virtual TResource		do_instantiate(const TSnapshot*) = 0;

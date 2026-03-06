@@ -5,23 +5,36 @@
 #include <engine/services/thread_service.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <engine/services/log_service.hpp>
+#include <engine/render/mesh.hpp>
+#include <engine/render/texture.hpp>
+#include <engine/material/material.hpp>
+#include <engine/effect/effect.hpp>
 #include <engine.hpp>
 
 namespace kokoro::entry
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	int main(int argc, char* argv[])
+	int main(config_func_t cfg, int argc, char* argv[])
 	{
 		auto& e = instance();
 
+		//- Add our services
 		e.new_service<clog_service>()
 			.new_service<cwindow_service>()
 			.new_service<cinput_service>()
 			.new_service<cthread_service>()
 			.new_service<cvirtual_filesystem_service>()
-			.new_service<crender_service>();
+			.new_service<crender_service>()
+			
+			.new_service<ctexture_resource_manager_service>()
+			.new_service<ceffect_resource_manager_service>()
+			.new_service<cmesh_resource_manager_service>()
+			.new_service<cmaterial_resource_manager_service>();
 
 		e.service<clog_service>().set_level(clog_service::level_trace);
+
+		//- Add services and layers of the game
+		cfg(e);
 
 		if (!e.init())
 		{

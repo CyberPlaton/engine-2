@@ -63,6 +63,8 @@ namespace kokoro
 		ceffect_resource_manager_service() = default;
 		~ceffect_resource_manager_service() = default;
 
+		bool			init() override final;
+
 	protected:
 		seffect			do_instantiate(const seffect_snapshot* snaps) override final;
 		void			do_destroy(seffect* inst) override final;

@@ -11,6 +11,12 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
+	bool cmesh_resource_manager_service::init()
+	{
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
 	smesh cmesh_resource_manager_service::do_instantiate(const smesh_snapshot* snaps)
 	{
 		if (!bgfx::isValid(spos_color_uv_vertex::S_HANDLE))

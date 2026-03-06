@@ -13,6 +13,12 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
+	bool ceffect_resource_manager_service::init()
+	{
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
 	seffect ceffect_resource_manager_service::do_instantiate(const seffect_snapshot* snaps)
 	{
 		seffect effect;

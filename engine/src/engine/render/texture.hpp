@@ -28,6 +28,8 @@ namespace kokoro
 		ctexture_resource_manager_service() = default;
 		~ctexture_resource_manager_service() = default;
 
+		bool			init() override final;
+
 	protected:
 		stexture		do_instantiate(const stexture_snapshot* snaps) override final;
 		void			do_destroy(stexture* inst) override final;

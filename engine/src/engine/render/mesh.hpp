@@ -53,6 +53,8 @@ namespace kokoro
 		cmesh_resource_manager_service() = default;
 		~cmesh_resource_manager_service() = default;
 
+		bool			init() override final;
+
 	protected:
 		smesh			do_instantiate(const smesh_snapshot* snaps) override final;
 		void			do_destroy(smesh* inst) override final;
