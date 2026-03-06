@@ -6,6 +6,18 @@ namespace kokoro::world::component
 	using matrix_serialize_type = std::array<float, 16u>;
 
 	//------------------------------------------------------------------------------------------------------------------------
+	bool slocal_transform::show_ui(rttr::variant& comp)
+	{
+		return false;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	bool sworld_transform::show_ui(rttr::variant& comp)
+	{
+		return false;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
 	void sworld_transform::custom_serialize(const rttr::variant& var, nlohmann::json& json)
 	{
 		if (const auto type = var.get_type(); type.is_valid() && type == rttr::type::get<sworld_transform>())

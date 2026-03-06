@@ -3,6 +3,11 @@
 
 namespace kokoro::world::component
 {
+	//------------------------------------------------------------------------------------------------------------------------
+	bool scamera::show_ui(rttr::variant& comp)
+	{
+		return false;
+	}
 
 } //- kokoro::world::component
 
