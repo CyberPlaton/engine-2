@@ -48,38 +48,21 @@ namespace kokoro
 
 		//- Create programs required for main loop
 		{
-			core::memory_ref_t default_vs;
+			static const filepath_t C_MERGE_EFFECT_FILEPATH = "engine/effects/merge.effect";
+			static const filepath_t C_APPLY0_EFFECT_FILEPATH = "engine/effects/apply_back0.effect";
+			static const filepath_t C_APPLY1_EFFECT_FILEPATH = "engine/effects/apply_back1.effect";
+
+			auto& erm = instance().service<ceffect_resource_manager_service>();
+			m_merge_program = erm.instantiate(C_MERGE_EFFECT_FILEPATH);
+			m_apply_back0_program = erm.instantiate(C_APPLY0_EFFECT_FILEPATH);
+			m_apply_back1_program = erm.instantiate(C_APPLY1_EFFECT_FILEPATH);
+
+			if (!is_valid(m_merge_program) ||
+				!is_valid(m_apply_back0_program)||
+				!is_valid(m_apply_back1_program))
 			{
-				ceffect_parser parser(sembedded_shaders::get(sembedded_shaders::vs_postprocess));
-				const auto output = parser.parse();
-
-				scompile_options options;
-				options.m_type = scompile_options::shader_type_vertex;
-				options.m_name = "vs_postprocess";
-				default_vs = compile_shader_from_string(output.m_vs.c_str(), options);
-
-				if (!default_vs)
-				{
-					return false;
-				}
+				return false;
 			}
-
-			const auto do_create_program = [&](auto name)
-				{
-					ceffect_parser parser(sembedded_shaders::get(name));
-					const auto output = parser.parse();
-
-					scompile_options options;
-					options.m_type = scompile_options::shader_type_pixel;
-					options.m_name = name;
-
-					auto mem = compile_shader_from_string(output.m_ps.c_str(), options);
-					return create_program(default_vs, mem);
-				};
-
-			m_merge_program = do_create_program("ps_combine");
-			m_apply_back0_program = do_create_program("ps_postprocess_apply_back0");
-			m_apply_back1_program = do_create_program("ps_postprocess_apply_back1");
 		}
 
 		//- Create default render target with color and depth
@@ -111,10 +94,11 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void crender_service::shutdown()
 	{
+		auto& erm = instance().service<ceffect_resource_manager_service>();
+		erm.destroy(m_merge_program);
+		erm.destroy(m_apply_back0_program);
+		erm.destroy(m_apply_back1_program);
 		bgfx::destroy(m_geometry_framebuffer);
-		bgfx::destroy(m_merge_program);
-		bgfx::destroy(m_apply_back0_program);
-		bgfx::destroy(m_apply_back1_program);
 		bgfx::destroy(m_texture_chain_uniform);
 		bgfx::shutdown();
 	}
@@ -149,6 +133,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void crender_service::end_frame()
 	{
+		auto& erm = instance().service<ceffect_resource_manager_service>();
+
 		bgfx::setViewFrameBuffer(C_BACKBUFFER_PASS_ID, BGFX_INVALID_HANDLE);
 		bgfx::setViewClear(C_BACKBUFFER_PASS_ID, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030FF);
 		bgfx::setViewTransform(C_BACKBUFFER_PASS_ID, mat4id.value, mat4id.value);
@@ -159,7 +145,7 @@ namespace kokoro
 
 		submit_screen_quad();
 
-		bgfx::submit(C_BACKBUFFER_PASS_ID, m_merge_program);
+		bgfx::submit(C_BACKBUFFER_PASS_ID, erm.get(m_merge_program)->m_program);
 
 		//- End ImGui if required
 

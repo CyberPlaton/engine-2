@@ -49,7 +49,7 @@ namespace kokoro
 		for (auto i = 0; i < inst->m_sampler_textures.size(); ++i)
 		{
 			auto& t = inst->m_sampler_textures[i];
-			tms.destroy(const_cast<stexture*>(t.m_texture));
+			tms.destroy(t.m_texture);
 		}
 	}
 

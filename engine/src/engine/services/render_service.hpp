@@ -1,5 +1,6 @@
 #pragma once
 #include <engine/iservice.hpp>
+#include <engine/effect/effect.hpp>
 #include <bgfx.h>
 
 namespace kokoro
@@ -35,9 +36,9 @@ namespace kokoro
 
 	private:
 		bgfx::FrameBufferHandle m_geometry_framebuffer	= BGFX_INVALID_HANDLE;
-		bgfx::ProgramHandle m_merge_program				= BGFX_INVALID_HANDLE;
-		bgfx::ProgramHandle m_apply_back0_program		= BGFX_INVALID_HANDLE;
-		bgfx::ProgramHandle m_apply_back1_program		= BGFX_INVALID_HANDLE;
+		resource_handle_t m_merge_program				= invalid_handle_t;
+		resource_handle_t m_apply_back0_program			= invalid_handle_t;
+		resource_handle_t m_apply_back1_program			= invalid_handle_t;
 		bgfx::UniformHandle m_texture_chain_uniform		= BGFX_INVALID_HANDLE;
 	};
 

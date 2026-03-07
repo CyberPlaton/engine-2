@@ -1,5 +1,6 @@
 #include <engine/effect/effect.hpp>
 #include <engine/effect/effect_parser.hpp>
+#include <engine/effect/embedded_shaders.hpp>
 #include <engine/effect/shader.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <engine/services/log_service.hpp>
@@ -125,7 +126,16 @@ namespace kokoro
 					}
 					case seffect_snapshot::type_embedded:
 					{
-						return {};
+						const char* code = sembedded_shaders::get(snaps->m_vs.m_filepath_or_name.c_str());
+						ceffect_parser parser(code);
+						const auto output = parser.parse();
+
+						if (!output.m_vs.empty())
+						{
+							effect.m_vs.m_data = compile_shader_from_string(output.m_vs.c_str(), options);
+							effect.m_vs.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_vs.m_data->data(), effect.m_vs.m_data->size()));
+						}
+						break;
 					}
 					default:
 					case seffect_snapshot::type_none:
@@ -161,7 +171,16 @@ namespace kokoro
 					}
 					case seffect_snapshot::type_embedded:
 					{
-						return {};
+						const char* code = sembedded_shaders::get(snaps->m_ps.m_filepath_or_name.c_str());
+						ceffect_parser parser(code);
+						const auto output = parser.parse();
+
+						if (!output.m_ps.empty())
+						{
+							effect.m_ps.m_data = compile_shader_from_string(output.m_ps.c_str(), options);
+							effect.m_ps.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_ps.m_data->data(), effect.m_ps.m_data->size()));
+						}
+						break;
 					}
 					default:
 					case seffect_snapshot::type_none:
@@ -185,7 +204,7 @@ namespace kokoro
 				}
 			}
 		}
-		return {};
+		return effect;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -244,6 +263,13 @@ RTTR_REGISTRATION
 	using namespace kokoro;
 
 	rttr::detail::default_constructor<std::vector<suniform>>();
+
+	rttr::registration::enumeration<seffect_snapshot::type>("seffect_snapshot::type")
+		(
+			rttr::value("type_none", seffect_snapshot::type_none),
+			rttr::value("type_file", seffect_snapshot::type_file),
+			rttr::value("type_embedded", seffect_snapshot::type_embedded)
+		);
 
 	rttr::cregistrator<suniform>("suniform")
 		.prop("m_name", &suniform::m_name)

@@ -54,6 +54,9 @@ namespace kokoro::world::component
 			const auto type_name = json[core::C_OBJECT_TYPE_NAME].get<std::string>();
 			if (const auto type = rttr::type::get_by_name(type_name); type.is_valid() && type == rttr::type::get<ssprite>())
 			{
+				auto& material_manager = instance().service<cmaterial_resource_manager_service>();
+				auto& mesh_manager = instance().service<cmesh_resource_manager_service>();
+
 				auto& j = json[type_name]; //- TODO: now this does look redundant and we probably should automate this part
 				auto& s = var.get_value<ssprite>();
 
@@ -61,13 +64,11 @@ namespace kokoro::world::component
 				auto mesh_path = j["mesh"].get<std::string>();
 
 				{
-					auto& mrm = instance().service<cmaterial_resource_manager_service>();
-					s.m_material = mrm.instantiate(material_path);
+					s.m_material = material_manager.instantiate(material_path);
 				}
 
 				{
-					auto& mrm = instance().service<cmesh_resource_manager_service>();
-					s.m_mesh = mrm.instantiate(mesh_path);
+					s.m_mesh = mesh_manager.instantiate(mesh_path);
 				}
 
 				s.m_source = core::from_json_object(rttr::type::get<math::vec4_t>(), j["source"]).get_value<math::vec4_t>();
@@ -90,11 +91,16 @@ namespace kokoro::world::component
 				{
 					auto width = 0u;
 					auto height = 0u;
+					auto& texture_manager = instance().service<ctexture_resource_manager_service>();
 
-					for (const auto& t : s.m_material->m_sampler_textures)
+					const auto* material = material_manager.get(s.m_material);
+
+					for (const auto& t : material->m_sampler_textures)
 					{
-						width = std::max(width, t.m_texture->m_image.m_width);
-						height = std::max(height, t.m_texture->m_image.m_height);
+						const auto* texture = texture_manager.get(t.m_texture);
+
+						width = std::max(width, texture->m_image.m_width);
+						height = std::max(height, texture->m_image.m_height);
 					}
 
 					auto u0 = s.m_source.x / width;

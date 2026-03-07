@@ -39,13 +39,13 @@ namespace kokoro
 
 		struct ssampler_texture
 		{
-			const stexture* m_texture = nullptr;
+			resource_handle_t m_texture = invalid_handle_t;
 			uint64_t m_sampler_flags = 0;
 			uint8_t m_sampler_stage = 0;
 		};
 
 		std::vector<ssampler_texture> m_sampler_textures;
-		seffect* m_effect = nullptr;
+		resource_handle_t m_effect = invalid_handle_t;
 		uint64_t m_blending = C_MATERIAL_BLEND_DEFAULT;
 		uint64_t m_state = C_MATERIAL_STATE_DEFAULT;
 	};
