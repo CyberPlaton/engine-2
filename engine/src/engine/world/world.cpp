@@ -545,9 +545,6 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		sworld::~sworld()
 		{
-			instance().service<clog_service>().debug("Freeing world '{}'",
-				this->name());
-
 			box2d::b2DynamicTree_Destroy(&m_proxy_manager.m_quad_tree);
 			m_proxy_observer.destruct();
 			m_comps_observer.destruct();

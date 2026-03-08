@@ -1,8 +1,9 @@
-IS_PROFILE_ENABLED				= true -- Enable profiling, either with in-engine or external tools
-IS_TRACY_ENABLED				= true -- Enable profiling with Tracy
-IS_LOGGING_ENABLED				= true -- Enable log output
-IS_WARNING_AND_ERRORS_ENABLED	= false-- Enable compiler warnings and warning as errors messages
-IS_ECS_DEBUG_INFO_ENABLED		= true -- Enabled gathering debug information about modules, systems, entities and their components etc.
+IS_PROFILE_ENABLED				= true	-- Enable profiling, either with in-engine or external tools
+IS_TRACY_ENABLED				= true	-- Enable profiling with Tracy
+IS_LOGGING_ENABLED				= true	-- Enable log output
+IS_WARNING_AND_ERRORS_ENABLED	= false	-- Enable compiler warnings and warning as errors messages
+IS_ECS_DEBUG_INFO_ENABLED		= true	-- Enabled gathering debug information about modules, systems, entities and their components etc.
+IS_ADRESS_SANITIZE_ENABLED		= false	-- Enabled adress sanitizer for deeper checking. Available for windows.
 
 ------------------------------------------------------------------------------------------------------------------------
 function isempty(s)
@@ -48,6 +49,9 @@ function set_basic_defines()
 		editandcontinue "Off"
 		filter {"action:vs*"}
 			buildoptions{"/Zc:__cplusplus", "/Zc:preprocessor"}
+			if IS_ADRESS_SANITIZE_ENABLED == true then
+				buildoptions{"/fsanitize=address"}
+			end
 		filter{}
 	elseif PLATFORM == "linux" then
 		defines { "BGFX_CONFIG_RENDERER_VULKAN", "PLATFORM_LINUX=1"}

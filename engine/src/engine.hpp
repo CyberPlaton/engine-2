@@ -44,7 +44,7 @@ namespace kokoro
 	{
 		const auto idx = m_services.size();
 		m_services_mapping[typeid(T).hash_code()] = idx;
-		m_services.push_back(std::move(
+		m_services.emplace_back(std::move(
 			std::make_unique<T>(std::forward<ARGS>(args)...)
 		));
 		return *this;
@@ -54,7 +54,7 @@ namespace kokoro
 	template<typename T, typename... ARGS>
 	cengine& cengine::new_layer(ARGS... args)
 	{
-		m_layers.push_back(std::move(
+		m_layers.emplace_back(std::move(
 			std::make_unique<T>(std::forward<ARGS>(args)...)
 		));
 		return* this;
