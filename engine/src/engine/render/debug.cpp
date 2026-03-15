@@ -187,6 +187,58 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::transform(const math::mat4_t& mtx)
+	{
+		state().m_matrix = mtx;
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::fill(const bool value)
+	{
+		state().m_fill = value;
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::triangle(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2, uint32_t color /*= 0*/)
+	{
+		//- Set state for drawing either filled triangles or lines
+		auto new_state = state().m_state;
+		new_state &= ~BGFX_STATE_PT_MASK;
+		if (!state().m_fill)
+		{
+
+			new_state |= BGFX_STATE_PT_LINES | BGFX_STATE_LINEAA;
+		}
+		set_state(new_state);
+
+		const auto index_offset = vertex_count();
+		if (!state().m_fill)
+		{
+			//- Push required indices to correctly close the triangle
+			push_index(index_offset + 0);
+			push_index(index_offset + 1);
+			push_index(index_offset + 1);
+			push_index(index_offset + 2);
+			push_index(index_offset + 2);
+			push_index(index_offset + 0);
+		}
+		else
+		{
+			push_index(index_offset + 0);
+			push_index(index_offset + 1);
+			push_index(index_offset + 2);
+		}
+
+		const auto c = color == 0 ? state().m_color : color;
+		push_vertex(v0.x, v0.y, v0.z, c);
+		push_vertex(v1.x, v1.y, v1.z, c);
+		push_vertex(v2.x, v2.y, v2.z, c);
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
 	cdebug_drawer::srender_state& cdebug_drawer::state()
 	{
 		switch (m_current_type)
@@ -356,7 +408,7 @@ namespace kokoro
 
 			set_state();
 
-			bgfx::setTransform(state().m_matrix.value);
+			bgfx::setTransform(C_MAT4_ID.value);
 
 			const auto* effect = instance().service<ceffect_resource_manager_service>().get(state().m_effect);
 			bgfx::submit(state().m_view, effect->m_program);
@@ -364,6 +416,24 @@ namespace kokoro
 
 		vertex_clear();
 		indices_vector().clear();
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	void cdebug_drawer::push_index(uint16_t i)
+	{
+		switch (m_current_type)
+		{
+		default:
+		case type_primitives:
+			m_shape_data.m_indices.push_back(i);
+			break;
+		case type_sprite:
+			m_sprite_data.m_indices.push_back(i);
+			break;
+		case type_text:
+			m_text_data.m_indices.push_back(i);
+			break;
+		}
 	}
 
 } //- kokoro

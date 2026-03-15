@@ -1,5 +1,6 @@
 #pragma once
 #include <engine/math/vec4.hpp>
+#include <engine/math/vec3.hpp>
 
 namespace kokoro::math
 {
@@ -9,7 +10,10 @@ namespace kokoro::math
 		smat4x4() = default;
 		constexpr smat4x4(float s) : value{ s, 0.0f, 0.0f, 0.0f, 0.0f, s, 0.0f, 0.0f, 0.0f, 0.0f, s, 0.0f, 0.0f, 0.0f, 0.0f, s } {}
 
-		smat4x4 inverse() const;
+		smat4x4		inverse() const;
+		smat4x4&	translate(const vec3_t& v);
+		smat4x4&	scale(const vec3_t& v);
+		smat4x4&	rotate(const vec3_t& v);
 
 		float* operator[](size_t i) { return &value[i * 4]; }
 		constexpr const float* operator[](size_t i) const { return &value[i * 4]; }
@@ -47,6 +51,16 @@ namespace kokoro::math
 		result.z = m.value[2] * v.x + m.value[6] * v.y + m.value[10] * v.z + m.value[14] * v.w;
 		result.w = m.value[3] * v.x + m.value[7] * v.y + m.value[11] * v.z + m.value[15] * v.w;
 
+		return result;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	inline vec3_t operator*(const smat4x4& m, const vec3_t& v)
+	{
+		vec3_t result;
+		result.x = m.value[0] * v.x + m.value[4] * v.y + m.value[8] * v.z + m.value[12] * 1.0f;
+		result.y = m.value[1] * v.x + m.value[5] * v.y + m.value[9] * v.z + m.value[13] * 1.0f;
+		result.z = m.value[2] * v.x + m.value[6] * v.y + m.value[10] * v.z + m.value[14] * 1.0f;
 		return result;
 	}
 

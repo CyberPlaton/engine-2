@@ -75,32 +75,27 @@ namespace kokoro
 		bool					init();
 		void					shutdown();
 
-		cdebug_drawer&			begin(bgfx::ViewId view,										//- Prepare for drawing of a new frame
+		cdebug_drawer&			begin(bgfx::ViewId view,															//- Prepare for drawing of a new frame
 									bgfx::FrameBufferHandle fbh,
 									uint16_t flags = 0,
 									uint32_t color = 0,
 									float depth = 1.0f,
 									uint8_t stencil = 0);
-		void					frame();														//- Submit everything we gathered for all render types
-		cdebug_drawer&			view_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);		//- Set view region. Primitives outside will be clipped
-		cdebug_drawer&			render_type(type value);										//- Set the current render type we want to be working on, note that this does not enforce a flush
-		cdebug_drawer&			depth_test(depth_test_mode mode);								//- Set the depth test mode to be used for rendering state
-		cdebug_drawer&			cull(culling_mode mode);										//- Set the culling mode to be used for rendering state
-		cdebug_drawer&			blend(blending_mode mode);										//- Set the blending mode to be used for rendering state
-		cdebug_drawer&			effect(render_effect value);									//- Set the effect to be used for rendering, as fallback a default effect is used
-		cdebug_drawer&			submit() { flush(); return *this; }								//- Submit what we gathered so far for current render type
-		cdebug_drawer&			color(uint32_t value);
-		cdebug_drawer&			draw(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2)
-		{
-			auto new_state = state().m_state;
-			new_state &= ~BGFX_STATE_PT_MASK;
-			set_state(new_state);
-
-			push_vertex(v0.x, v0.y, v0.z, state().m_color);
-			push_vertex(v1.x, v1.y, v1.z, state().m_color);
-			push_vertex(v2.x, v2.y, v2.z, state().m_color);
-			return *this;
-		}
+		void					frame();																			//- Submit everything we gathered for all render types
+		cdebug_drawer&			view_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);							//- Set view region. Primitives outside will be clipped
+		cdebug_drawer&			render_type(type value);															//- Set the current render type we want to be working on, note that this does not enforce a flush
+		cdebug_drawer&			depth_test(depth_test_mode mode);													//- Set the depth test mode to be used for rendering state
+		cdebug_drawer&			cull(culling_mode mode);															//- Set the culling mode to be used for rendering state
+		cdebug_drawer&			blend(blending_mode mode);															//- Set the blending mode to be used for rendering state
+		cdebug_drawer&			effect(render_effect value);														//- Set the effect to be used for rendering, as fallback a default effect is used
+		cdebug_drawer&			submit() { flush(); return *this; }													//- Submit what we gathered so far for current render type
+		cdebug_drawer&			color(uint32_t value);																//- Color that will be set for each submitted vertex
+		cdebug_drawer&			transform(const math::mat4_t& mtx);													//- Matrix used for transforming each submitted vertex
+		cdebug_drawer&			fill(const bool value);																//- Whether to fill the object with color or interpret as lines
+		cdebug_drawer&			triangle(const math::vec3_t& v0, const math::vec3_t& v1,							//- Submit a single triangle
+										const math::vec3_t& v2, uint32_t color = 0);
+		cdebug_drawer&			quad(const math::vec3_t& v0, const math::vec3_t& v1,								//- Submit a single quad
+									const math::vec3_t& v2, const math::vec3_t& v3, uint32_t color = 0);
 
 		cdebug_drawer&			line(const math::vec3_t& v0, const math::vec3_t& v1)
 		{
@@ -130,6 +125,7 @@ namespace kokoro
 			uint16_t m_view_y					= 0;
 			uint16_t m_view_w					= 0;
 			uint16_t m_view_h					= 0;
+			bool m_fill							= true;
 		};
 
 		struct sshape_data
@@ -170,7 +166,7 @@ namespace kokoro
 		bgfx::VertexLayoutHandle	vertex_handle() const;
 		bool						submit_buffers();
 		void						flush();
-
+		void						push_index(uint16_t i);
 		template<typename... ARGS>
 		void						push_vertex(ARGS... args)
 		{

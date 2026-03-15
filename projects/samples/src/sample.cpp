@@ -38,13 +38,63 @@ void cgame::update(float dt)
 		.view_rect(0, 0, ws.window_size().first, ws.window_size().second)
 		.cull(kokoro::cdebug_drawer::culling_mode_ccw)
 		.depth_test(kokoro::cdebug_drawer::depth_test_mode_none)
-		.blend(kokoro::cdebug_drawer::blending_mode_none);
+		.blend(kokoro::cdebug_drawer::blending_mode_alpha)
+		.fill(false);
 
-	m_dd.color(0x00ff22ff)
-		.draw(
-		{ 0.0f, 1.0f, 0.5f },
-		{ 1.0f, -1.0f, 0.5f },
-		{ -1.0f, -1.0f, 0.5f });
+	const auto unproject = [](const kokoro::math::mat4_t& mtx, const kokoro::math::vec4_t& p)
+		{
+			using namespace kokoro;
+
+			// 2. Multiply by the Inverse View-Projection Matrix
+			// This moves the point from "Screen space" back towards "World space"
+			math::vec4_t world_point = mtx.inverse() * p;
+
+			// 3. The Perspective Divide (CRITICAL STEP)
+			// After multiplying by an inverse projection, the w component 
+			// represents the scaling factor caused by the original perspective.
+			// We must divide by w to get the actual x, y, z coordinates.
+			if (world_point.w != 0.0f)
+			{
+				world_point.x /= world_point.w;
+				world_point.y /= world_point.w;
+				world_point.z /= world_point.w;
+			}
+
+			return math::vec3_t(world_point.x, world_point.y, world_point.z);
+		};
+
+	// 1. Get Delta Time (dt) and an accumulator for rotation
+	static float accumulator = 0.0f;
+	accumulator += dt * 0.01f;
+
+	kokoro::math::mat4_t mtx(1.0f);
+
+	// 2. Create the components of the Model Matrix
+	// We'll scale it down because 1.0 is the edge of the screen.
+	float scaleFactor = 0.25f;
+	
+	mtx.scale(kokoro::math::vec3_t(scaleFactor))
+		.rotate(kokoro::math::vec3_t(0.0f, 0.0f, accumulator))
+		.translate(kokoro::math::vec3_t(0.0f, 0.0f, 0.0f));
+
+	kokoro::math::vec3_t v0 = { 0.0f, 1.0f, 0.0f };
+	kokoro::math::vec3_t v1 = { 1.0f, -1.0f, 0.0f };
+	kokoro::math::vec3_t v2 = { -1.0f, -1.0f, 0.0f };
+
+	kokoro::math::vec3_t v3 = { 0.0f, 1.5f, 0.0f };
+	kokoro::math::vec3_t v4 = { 1.5f, -1.25f, 0.0f };
+	kokoro::math::vec3_t v5 = { -1.5f, -0.75f, 0.0f };
+
+	m_dd.color(0xff22aaee)
+		.triangle(
+			mtx * v0,
+			mtx * v1,
+			mtx * v2)
+		.color(0xff11ff00)
+		.triangle(
+			mtx * v3,
+			mtx * v4,
+			mtx * v5);
 
 	m_dd.submit();
 	m_dd.frame();

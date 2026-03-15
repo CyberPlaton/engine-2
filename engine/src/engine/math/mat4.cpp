@@ -1,4 +1,5 @@
 #include <engine/math/mat4.hpp>
+#include <math.h>
 
 namespace kokoro::math
 {
@@ -132,6 +133,68 @@ namespace kokoro::math
 			invOut[i] = invOut[i] * det;
 
 		return inv;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	smat4x4& smat4x4::translate(const vec3_t& v)
+	{
+		value[12] += value[0] * v.x + value[4] * v.y + value[8] * v.z;
+		value[13] += value[1] * v.x + value[5] * v.y + value[9] * v.z;
+		value[14] += value[2] * v.x + value[6] * v.y + value[10] * v.z;
+		value[15] += value[3] * v.x + value[7] * v.y + value[11] * v.z;
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	smat4x4& smat4x4::scale(const vec3_t& v)
+	{
+		value[0] *= v.x; value[1] *= v.x; value[2] *= v.x; value[3] *= v.x;
+		value[4] *= v.y; value[5] *= v.y; value[6] *= v.y; value[7] *= v.y;
+		value[8] *= v.z; value[9] *= v.z; value[10] *= v.z; value[11] *= v.z;
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	smat4x4& smat4x4::rotate(const vec3_t& v)
+	{
+		if(v.x != 0.0f)
+		{
+
+			const auto c = cosf(v.x);
+			const auto s = sinf(v.x);
+			for (int i = 0; i < 4; ++i)
+			{
+				float v1 = value[4 + i];
+				float v2 = value[8 + i];
+				value[4 + i] = v1 * c + v2 * s;
+				value[8 + i] = v1 * -s + v2 * c;
+			}
+		}
+		if (v.y != 0.0f)
+		{
+			const auto c = cosf(v.y);
+			const auto s = sinf(v.y);
+			for (int i = 0; i < 4; ++i)
+			{
+				float v0 = value[i];
+				float v2 = value[8 + i];
+				value[i] = v0 * c + v2 * -s;
+				value[8 + i] = v0 * s + v2 * c;
+			}
+		}
+		if (v.z != 0.0f)
+		{
+			const auto c = cosf(v.z);
+			const auto s = sinf(v.z);
+			for (int i = 0; i < 4; ++i)
+			{
+				float v0 = value[i];
+				float v1 = value[4 + i];
+				value[i] = v0 * c + v1 * s;
+				value[4 + i] = v0 * -s + v1 * c;
+			}
+		}
+		return *this;
 	}
 
 } //- kokoro::math
