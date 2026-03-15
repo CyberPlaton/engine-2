@@ -34,7 +34,7 @@ namespace kokoro
 			"SAMPLER2D(s_texture, 0);							\n"
 			"void main()										\n"
 			"{													\n"
-			"\tgl_FragColor = texture2D(s_texture, vec2(v_texcoord0.x, v_texcoord0.y));\n"
+			"\tgl_FragColor = texture2D(s_texture, vec2(v_texcoord0.x, 1.0 - v_texcoord0.y));\n"
 			"}													\n"
 			"@ !PIXEL											\n"
 			},

@@ -4,6 +4,7 @@ namespace kokoro
 {
 	namespace
 	{
+		constexpr auto C_MAT4_ID = math::mat4_t(1.0f);
 		static const filepath_t C_DEFAULT_SHAPE_EFFECT_FILEPATH = "engine/effects/debug/default.effect";
 		static const filepath_t C_DEFAULT_SPRITE_EFFECT_FILEPATH = "engine/effects/debug/default.effect";
 		static const filepath_t C_DEFAULT_TEXT_EFFECT_FILEPATH = "engine/effects/debug/default.effect";
@@ -16,6 +17,10 @@ namespace kokoro
 		m_shape_data.m_state.m_effect = erm.instantiate(C_DEFAULT_SHAPE_EFFECT_FILEPATH);
 		m_sprite_data.m_state.m_effect = erm.instantiate(C_DEFAULT_SHAPE_EFFECT_FILEPATH);
 		m_text_data.m_state.m_effect = erm.instantiate(C_DEFAULT_SHAPE_EFFECT_FILEPATH);
+
+		//- Setup for render types
+
+
 		return true;
 	}
 
@@ -29,28 +34,83 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	cdebug_drawer& cdebug_drawer::begin(bgfx::ViewId view)
+	cdebug_drawer& cdebug_drawer::begin(bgfx::ViewId view, bgfx::FrameBufferHandle fbh, uint16_t flags /*= 0*/, uint32_t color /*= 0*/,
+		float depth /*= 1.0f*/, uint8_t stencil /*= 0*/)
 	{
-		state().m_view = view;
+		auto& s = state();
+		s.m_view = view;
+		s.m_fbh = fbh;
+		s.m_clear_flags = flags;
+		s.m_clear_color = color;
+		s.m_clear_depth = depth;
+		s.m_clear_stencil = stencil;
+		return *this;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	cdebug_drawer& cdebug_drawer::frame()
+	void cdebug_drawer::frame()
 	{
+		//- 
+		for (auto i = 0; i < (int)type_count; ++i)
+		{
+			render_type((type)i).submit();
+		}
+	}
 
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::view_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+	{
+		auto& s = state();
+		s.m_view_x = x;
+		s.m_view_y = y;
+		s.m_view_w = w;
+		s.m_view_h = h;
+		return *this;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	cdebug_drawer& cdebug_drawer::render_type(type value)
 	{
-		m_current_type = value == type_count ? type_none : value;
+		m_current_type = value == type_count ? type_primitives : value;
 		return *this;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	cdebug_drawer& cdebug_drawer::depth_test(depth_test_mode mode)
 	{
-
+		//- Erase previously set depth test mode and set the new one
+		state().m_state &= ~BGFX_STATE_DEPTH_TEST_MASK;
+		switch (mode)
+		{
+		case depth_test_mode_none:
+		default:
+			break;
+		case depth_test_mode_less:
+			state().m_state |= BGFX_STATE_DEPTH_TEST_LESS;
+			break;
+		case depth_test_mode_less_equal:
+			state().m_state |= BGFX_STATE_DEPTH_TEST_LEQUAL;
+			break;
+		case depth_test_mode_equal:
+			state().m_state |= BGFX_STATE_DEPTH_TEST_EQUAL;
+			break;
+		case depth_test_mode_greater_equal:
+			state().m_state |= BGFX_STATE_DEPTH_TEST_GEQUAL;
+			break;
+		case depth_test_mode_greater:
+			state().m_state |= BGFX_STATE_DEPTH_TEST_GREATER;
+			break;
+		case depth_test_mode_not_equal:
+			state().m_state |= BGFX_STATE_DEPTH_TEST_NOTEQUAL;
+			break;
+		case depth_test_mode_never:
+			state().m_state |= BGFX_STATE_DEPTH_TEST_NEVER;
+			break;
+		case depth_test_mode_always:
+			state().m_state |= BGFX_STATE_DEPTH_TEST_ALWAYS;
+			break;
+		}
+		return *this;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -76,7 +136,54 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	cdebug_drawer& cdebug_drawer::blend(blending_mode mode)
 	{
+		//- Erase previously set blending mode and set the new one
+		state().m_state &= ~BGFX_STATE_BLEND_MASK;
+		switch (mode)
+		{
+		case blending_mode_none:
+		default:
+			break;
+		case blending_mode_alpha:
+			//- Source * Alpha + Dest * (1 - Alpha)
+			state().m_state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+			break;
+		case blending_mode_additive:
+			//- Source + Dest
+			state().m_state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
+			break;
+		case blending_mode_multiplicative:
+			//- Source * Dest
+			state().m_state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_DST_COLOR, BGFX_STATE_BLEND_ZERO);
+			break;
+		case blending_mode_premultiplied:
+			//- Source + Dest * (1 - Alpha)
+			state().m_state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+			break;
+		case blending_mode_screen:
+			//- 1 - ((1 - Source) * (1 - Dest))
+			state().m_state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_COLOR);
+			break;
+		case blending_mode_darken:
+			//- min(Source, Dest)
+			state().m_state |=
+				BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MIN) |
+				BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
+			break;
+		case blending_mode_lighten:
+			//- max(Source, Dest)
+			state().m_state |=
+				BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX) |
+				BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
+			break;
+		}
+		return *this;
+	}
 
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::color(uint32_t value)
+	{
+		state().m_color = value;
+		return *this;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -85,7 +192,7 @@ namespace kokoro
 		switch (m_current_type)
 		{
 		default:
-		case type_none:
+		case type_primitives:
 			return m_shape_data.m_state;
 		case type_sprite:
 			return m_sprite_data.m_state;
@@ -115,7 +222,7 @@ namespace kokoro
 		switch (m_current_type)
 		{
 		default:
-		case type_none:
+		case type_primitives:
 			return m_shape_data.m_indices;
 		case type_sprite:
 			return m_sprite_data.m_indices;
@@ -130,7 +237,7 @@ namespace kokoro
 		switch (m_current_type)
 		{
 		default:
-		case type_none:
+		case type_primitives:
 			m_shape_data.m_vertices.clear();
 			break;
 		case type_sprite:
@@ -148,7 +255,7 @@ namespace kokoro
 		switch (m_current_type)
 		{
 		default:
-		case type_none:
+		case type_primitives:
 			return (void*)m_shape_data.m_vertices.data();
 		case type_sprite:
 			return (void*)m_sprite_data.m_vertices.data();
@@ -159,17 +266,17 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	uint64_t cdebug_drawer::vertex_count() const
+	uint32_t cdebug_drawer::vertex_count() const
 	{
 		switch (m_current_type)
 		{
 		default:
-		case type_none:
-			return m_shape_data.m_vertices.size();
+		case type_primitives:
+			return static_cast<uint32_t>(m_shape_data.m_vertices.size());
 		case type_sprite:
-			return m_sprite_data.m_vertices.size();
+			return static_cast<uint32_t>(m_sprite_data.m_vertices.size());
 		case type_text:
-			return m_text_data.m_vertices.size();
+			return static_cast<uint32_t>(m_text_data.m_vertices.size());
 		}
 		return 0;
 	}
@@ -180,7 +287,7 @@ namespace kokoro
 		switch (m_current_type)
 		{
 		default:
-		case type_none:
+		case type_primitives:
 			return spos_color_vertex::get().layout();
 		case type_sprite:
 			return spos_color_uv_vertex::get().layout();
@@ -195,7 +302,7 @@ namespace kokoro
 		switch (m_current_type)
 		{
 		default:
-		case type_none:
+		case type_primitives:
 			return spos_color_vertex::get().handle();
 		case type_sprite:
 			return spos_color_uv_vertex::get().handle();
@@ -217,15 +324,16 @@ namespace kokoro
 			{
 				bgfx::TransientVertexBuffer tvb;
 				bgfx::allocTransientVertexBuffer(&tvb, count, layout);
-				bx::memCopy(tvb.data, vertex_data(), count * sizeof(layout.m_stride));
+				bx::memCopy(tvb.data, vertex_data(), static_cast<uint64_t>(count * layout.m_stride));
 				bgfx::setVertexBuffer(0, &tvb);
 
 				const auto& indices = indices_vector();
 				if (!indices.empty())
 				{
+					const auto indices_count = static_cast<uint32_t>(indices.size());
 					bgfx::TransientIndexBuffer tib;
-					bgfx::allocTransientIndexBuffer(&tib, indices.size());
-					bx::memCopy(tib.data, indices.data(), indices.size() * sizeof(uint16_t));
+					bgfx::allocTransientIndexBuffer(&tib, indices_count);
+					bx::memCopy(tib.data, indices.data(), indices_count * sizeof(uint16_t));
 					bgfx::setIndexBuffer(&tib);
 				}
 			}
@@ -239,13 +347,19 @@ namespace kokoro
 	{
 		if (submit_buffers())
 		{
+			const auto& s = state();
+
+			bgfx::setViewFrameBuffer(s.m_view, s.m_fbh);
+			bgfx::setViewClear(s.m_view, s.m_clear_flags, s.m_clear_color);
+			bgfx::setViewRect(s.m_view, s.m_view_x, s.m_view_y, s.m_view_w, s.m_view_h);
+			bgfx::setViewTransform(s.m_view, C_MAT4_ID.value, C_MAT4_ID.value);
+
 			set_state();
 
 			bgfx::setTransform(state().m_matrix.value);
 
 			const auto* effect = instance().service<ceffect_resource_manager_service>().get(state().m_effect);
 			bgfx::submit(state().m_view, effect->m_program);
-			bgfx::discard();
 		}
 
 		vertex_clear();

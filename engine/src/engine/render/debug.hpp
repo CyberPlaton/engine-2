@@ -25,7 +25,7 @@ namespace kokoro
 		//- for each separate render type
 		enum type : uint8_t
 		{
-			type_none = 0,				//- Default, shapes and basic primitives
+			type_primitives = 0,		//- Default, shapes and basic primitives
 			type_sprite,				//- Used for drawing textures
 			type_text,					//- Used for drawing text
 
@@ -35,12 +35,13 @@ namespace kokoro
 		enum blending_mode : uint8_t
 		{
 			blending_mode_none = 0,
-			blending_mode_alpha,
-			blending_mode_additive,
-			blending_mode_multiplicative,
-			blending_mode_premultiplied,
+			blending_mode_alpha,			//- Using the alpha channel, interpolate between source and destination colors
+			blending_mode_additive,			//- Basic adding of colors
+			blending_mode_multiplicative,	//- Basic multiply of colors
+			blending_mode_premultiplied,	//- Same as alpha, without multiplying source color by alpha
 			blending_mode_screen,
 			blending_mode_darken,
+			blending_mode_lighten,
 		};
 
 		enum culling_mode : uint8_t
@@ -74,15 +75,21 @@ namespace kokoro
 		bool					init();
 		void					shutdown();
 
-		cdebug_drawer&			begin(bgfx::ViewId view);			//- Prepare for drawing of a new frame
-		cdebug_drawer&			frame();							//- Submit everything we gathered so far
-
-		cdebug_drawer&			render_type(type value);			//- Set the current render type we want to be working on, note that this does not enforce a flush
-		cdebug_drawer&			depth_test(depth_test_mode mode);	//- Set the depth test mode to be used for rendering state
-		cdebug_drawer&			cull(culling_mode mode);			//- Set the culling mode to be used for rendering state
-		cdebug_drawer&			blend(blending_mode mode);			//- Set the blending mode to be used for rendering state
-		cdebug_drawer&			effect(render_effect value);		//- Set the effect to be used for rendering, as fallback a default effect is used
-		cdebug_drawer&			submit() { flush(); return *this; }
+		cdebug_drawer&			begin(bgfx::ViewId view,										//- Prepare for drawing of a new frame
+									bgfx::FrameBufferHandle fbh,
+									uint16_t flags = 0,
+									uint32_t color = 0,
+									float depth = 1.0f,
+									uint8_t stencil = 0);
+		void					frame();														//- Submit everything we gathered for all render types
+		cdebug_drawer&			view_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);		//- Set view region. Primitives outside will be clipped
+		cdebug_drawer&			render_type(type value);										//- Set the current render type we want to be working on, note that this does not enforce a flush
+		cdebug_drawer&			depth_test(depth_test_mode mode);								//- Set the depth test mode to be used for rendering state
+		cdebug_drawer&			cull(culling_mode mode);										//- Set the culling mode to be used for rendering state
+		cdebug_drawer&			blend(blending_mode mode);										//- Set the blending mode to be used for rendering state
+		cdebug_drawer&			effect(render_effect value);									//- Set the effect to be used for rendering, as fallback a default effect is used
+		cdebug_drawer&			submit() { flush(); return *this; }								//- Submit what we gathered so far for current render type
+		cdebug_drawer&			color(uint32_t value);
 		cdebug_drawer&			draw(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2)
 		{
 			auto new_state = state().m_state;
@@ -109,11 +116,20 @@ namespace kokoro
 	private:
 		struct srender_state
 		{
-			math::mat4_t m_matrix		= math::mat4_t(1.0f);
-			uint64_t m_state			= C_MATERIAL_STATE_DEFAULT;
-			uint32_t m_color			= 0xffffffff;
-			bgfx::ViewId m_view			= std::numeric_limits<bgfx::ViewId>::max();
-			resource_handle_t m_effect	= invalid_handle_t;
+			math::mat4_t m_matrix				= math::mat4_t(1.0f);
+			uint64_t m_state					= C_MATERIAL_STATE_DEFAULT;
+			uint32_t m_color					= 0xffffffff;
+			bgfx::FrameBufferHandle m_fbh		= BGFX_INVALID_HANDLE;
+			bgfx::ViewId m_view					= std::numeric_limits<bgfx::ViewId>::max();
+			uint16_t m_clear_flags				= 0;
+			uint32_t m_clear_color				= 0;
+			float m_clear_depth					= 0.0f;
+			uint8_t m_clear_stencil				= 0;
+			resource_handle_t m_effect			= invalid_handle_t;
+			uint16_t m_view_x					= 0;
+			uint16_t m_view_y					= 0;
+			uint16_t m_view_w					= 0;
+			uint16_t m_view_h					= 0;
 		};
 
 		struct sshape_data
@@ -137,7 +153,7 @@ namespace kokoro
 			std::vector<uint16_t> m_indices;
 		};
 
-		type m_current_type = type_none;
+		type m_current_type = type_primitives;
 		sshape_data m_shape_data;
 		ssprite_data m_sprite_data;
 		stext_data m_text_data;
@@ -149,7 +165,7 @@ namespace kokoro
 		auto						indices_vector() -> std::vector<uint16_t>&;
 		void						vertex_clear();
 		void*						vertex_data() const;
-		uint64_t					vertex_count() const;
+		uint32_t					vertex_count() const;
 		const bgfx::VertexLayout&	vertex_layout() const;
 		bgfx::VertexLayoutHandle	vertex_handle() const;
 		bool						submit_buffers();
@@ -161,7 +177,7 @@ namespace kokoro
 			switch (m_current_type)
 			{
 			default:
-			case type_none:
+			case type_primitives:
 				m_shape_data.m_vertices.push_back({ std::forward<ARGS>(args)... });
 				break;
 			case type_sprite:

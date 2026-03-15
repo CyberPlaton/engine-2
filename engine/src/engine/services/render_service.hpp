@@ -33,6 +33,7 @@ namespace kokoro
 		void		begin_frame();
 		void		end_frame();
 		void		submit_screen_quad(float scalex = 1.0f, float scaley = 1.0f);
+		auto		geometry_framebuffer() const -> const bgfx::FrameBufferHandle { return m_geometry_framebuffer; }
 
 	private:
 		bgfx::FrameBufferHandle m_geometry_framebuffer	= BGFX_INVALID_HANDLE;
