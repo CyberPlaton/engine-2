@@ -19,13 +19,10 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	smesh cmesh_resource_manager_service::do_instantiate(const smesh_snapshot* snaps)
 	{
-		if (!bgfx::isValid(spos_color_uv_vertex::S_HANDLE))
-		{
-			spos_color_uv_vertex::init();
-		}
+		const auto& layout = spos_color_uv_vertex::get().layout();
 
 		smesh mesh;
-		mesh.m_layout = spos_color_uv_vertex::S_LAYOUT;
+		mesh.m_layout = layout;
 
 		const auto u_start = snaps->m_source.x;
 		const auto u_end = snaps->m_source.x + snaps->m_source.z;
@@ -34,7 +31,7 @@ namespace kokoro
 
 		spos_color_uv_vertex vertices[] =
 		{
-			{ snaps->m_v1.x, snaps->m_v1.y, snaps->m_v1.z, 0xffffffff, u_start, v_end },		//- Bottom-left
+			{ snaps->m_v1.x, snaps->m_v1.y, snaps->m_v1.z, 0xffffffff, u_start, v_end },	//- Bottom-left
 			{ snaps->m_v2.x, snaps->m_v2.y, snaps->m_v2.z, 0xffffffff, u_end, v_end },		//- Bottom-right
 			{ snaps->m_v3.x, snaps->m_v3.y, snaps->m_v3.z, 0xffffffff, u_start, v_start },	//- Top-left
 			{ snaps->m_v4.x, snaps->m_v4.y, snaps->m_v4.z, 0xffffffff, u_end, v_start }		//- Top-right

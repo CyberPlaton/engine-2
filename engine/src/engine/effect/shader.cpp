@@ -9,6 +9,13 @@ namespace kokoro
 {
 	namespace
 	{
+		//------------------------------------------------------------------------------------------------------------------------
+		template<typename TIterator>
+		std::string join(TIterator begin, TIterator end, const char* delim)
+		{
+			return fmt::to_string(fmt::join(begin, end, delim));
+		}
+
 		//- Write incoming data to a string form
 		//------------------------------------------------------------------------------------------------------------------------
 		class cstringwriter final : public bx::WriterI
@@ -39,14 +46,7 @@ namespace kokoro
 		{
 		public:
 			clogwriter() = default;
-			~clogwriter()
-			{
-				if (!m_buffer.empty())
-				{
-					instance().service<clog_service>().err(fmt::format("[Bgfx Shaderc] {}",
-						m_buffer).c_str());
-				}
-			}
+			~clogwriter() = default;
 
 			int32_t write(const void* data, int32_t size, bx::Error* error) override final
 			{
@@ -62,7 +62,6 @@ namespace kokoro
 				return size;
 			}
 
-		private:
 			std::string m_buffer;
 		};
 
@@ -103,14 +102,7 @@ namespace kokoro
 			out.warningsAreErrors = !!(options.m_flags & scompile_options::flag_warnings_are_errors);
 			out.keepIntermediate = !!(options.m_flags & scompile_options::flag_keep_intermediate);
 			out.optimize = options.m_optimization != scompile_options::optimization_level_none;
-			out.optimizationLevel = (unsigned)options.m_optimization;
-
-			//- In case we did not set the paths previously, we have to set them here
-			{
-				auto& vfs = instance().service<cvirtual_filesystem_service>();
-				out.includeDirs.push_back(vfs.basepath("engine"));
-				out.includeDirs.push_back(vfs.basepath("/"));
-			}
+			out.optimizationLevel = static_cast<unsigned>(options.m_optimization);
 
 			for (const auto& include : options.m_include_dirs)
 			{
@@ -144,11 +136,13 @@ namespace kokoro
 	std::string scompile_options::shader_varying_default()
 	{
 		static constexpr const char* C_VARYING =
-			"vec4 v_color0    : COLOR0    = vec4(1.0, 0.0, 0.0, 1.0);\n"
-			"vec2 v_texcoord0 : TEXCOORD0 = vec2(0.0, 0.0);\n"
 			"vec3 a_position  : POSITION;\n"
 			"vec4 a_color0    : COLOR0;\n"
 			"vec2 a_texcoord0 : TEXCOORD0;\n"
+
+			"vec4 v_color     : COLOR        = vec4(1.0, 0.0, 0.0, 1.0);\n"
+			"vec2 v_texcoord0 : TEXCOORD0    = vec2(0.0, 0.0);\n"
+
 			"\n\0";
 
 		return C_VARYING;
@@ -168,15 +162,56 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	core::memory_ref_t compile_shader_from_string(const char* code, const scompile_options& options)
+	core::memory_ref_t compile_shader_from_string(const char* code, scompile_options& options)
 	{
+		auto& vfs = instance().service<cvirtual_filesystem_service>();
+		auto& log = instance().service<clog_service>();
+
+		//- In case we did not set the paths previously, we have to set them here
+		{
+			options.m_include_dirs.push_back(vfs.basepath("engine"));
+			options.m_include_dirs.push_back(vfs.basepath("engine") + "/shaders");
+			options.m_include_dirs.push_back(vfs.basepath("/"));
+		}
+
+		//- Extended compile information
+		{
+			log.debug(fmt::format("-------------------------------- Compiling shader '{}' ------------------------------------",
+				options.m_name).c_str());
+			
+			log.debug(fmt::format("\tplatform '{}'",
+				options.m_platform).c_str());
+
+			log.debug(fmt::format("\tprofile '{}'",
+				options.m_profile).c_str());
+
+			log.debug(fmt::format("\ttype '{}'",
+				options.m_type == scompile_options::shader_type_vertex ? "Vertex" :
+				options.m_type == scompile_options::shader_type_pixel ? "Pixel" :
+				options.m_type == scompile_options::shader_type_compute ? "Compute" : "-/-").c_str());
+
+			log.debug(fmt::format("\toptimization '{} ({})'",
+				static_cast<unsigned>(options.m_optimization),
+				options.m_optimization != scompile_options::optimization_level_none ? "Enabled" : "Disabled").c_str());
+
+			log.debug(fmt::format("\tvarying:\n'{}'",
+				options.m_varying).c_str());
+
+			log.debug(fmt::format("\tincludes '{}'",
+				join(options.m_include_dirs.begin(), options.m_include_dirs.end(), ",  ")).c_str());
+
+			log.debug(fmt::format("\tdefines '{}'",
+				join(options.m_defines.begin(), options.m_defines.end(), ",  ")).c_str());
+
+			log.debug(fmt::format("\tdeps '{}'",
+				join(options.m_deps.begin(), options.m_deps.end(), ",  ")).c_str());
+		}
+
 		auto bgfx_options = to_bgfx_options(options);
 		filepath_t temp_path;
 
 		//- Save code to a temporary file for compilation as direct compiling from string is not supported
 		{
-			auto& vfs = instance().service<cvirtual_filesystem_service>();
-
 			temp_path = fmt::format("{}/{}.sc",
 				vfs.basepath(".temp"),
 				filepath_t(options.m_name).stem().generic_string());
@@ -186,9 +221,14 @@ namespace kokoro
 			{
 				file->write(code, static_cast<unsigned>(strlen(code)));
 				file->close();
+
+				log.debug(fmt::format("\tsucessfully created and wrote to temporary file '{}'",
+					temp_path.generic_string()).c_str());
 			}
 			else
 			{
+				log.err(fmt::format("\tfailed creating and writing to temporary file '{}'",
+					temp_path.generic_string()).c_str());
 				return nullptr;
 			}
 		}
@@ -198,13 +238,17 @@ namespace kokoro
 		core::memory_ref_t memory{};
 		bgfx_options.inputFilePath = temp_path.generic_string();
 
-		instance().service<clog_service>().debug(fmt::format("[Bgfx Shaderc] Compiling shader '{}'",
-			options.m_name).c_str());
-
 		if (bgfx::compileShader(options.m_varying.data(), nullptr, (char*)code, static_cast<unsigned>(strlen(code)),
 			false, bgfx_options, &stringwriter, &logwriter))
 		{
 			memory = std::make_shared<core::cmemory>((char*)stringwriter.view().data(), stringwriter.view().size());
+
+			log.info("\tsucessfully compiled");
+		}
+		else
+		{
+			log.err("\tfailed to compile:\n'{}'",
+				logwriter.m_buffer);
 		}
 
 		//- Erase the temporary file used for compilation
@@ -214,16 +258,6 @@ namespace kokoro
 		}
 
 		return memory;
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	core::memory_ref_t compile_shader_from_string(const char* code, const char* name, scompile_options::shader_type type)
-	{
-		scompile_options options;
-		options.m_name = name;
-		options.m_type = type;
-		options.m_include_dirs.push_back("shaders");
-		return compile_shader_from_string(code, options);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

@@ -82,6 +82,17 @@ namespace kokoro
 			m_texture_chain_uniform = bgfx::createUniform("s_texture", suniform::type::Sampler);
 		}
 
+		bgfx::setViewName(C_BACKBUFFER_PASS_ID, "Backbuffer");
+		bgfx::setViewName(C_GEOMETRY_PASS_ID, "Geometry");
+		bgfx::setViewName(C_POSTPROCESS_PASS_ID, "Postprocess 0");
+		for (auto i = C_POSTPROCESS_PASS_ID + 1; i < C_MERGE_PASS_ID; ++i)
+		{
+			bgfx::setViewName(i, fmt::format("Postprocess {}", i - 1).c_str());
+		}
+		bgfx::setViewName(C_MERGE_PASS_ID, "Postprocess Combine");
+		bgfx::setViewName(C_IMGUI_PASS_ID, "ImGui");
+
+		bgfx::setDebug(BGFX_DEBUG_STATS);
 		return true;
 	}
 
@@ -123,7 +134,7 @@ namespace kokoro
 	{
 		bgfx::touch(C_GEOMETRY_PASS_ID);
 		bgfx::setViewFrameBuffer(C_GEOMETRY_PASS_ID, m_geometry_framebuffer);
-		bgfx::setViewClear(C_GEOMETRY_PASS_ID, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x555555FF);
+		bgfx::setViewClear(C_GEOMETRY_PASS_ID, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x0);
 		bgfx::setViewTransform(C_GEOMETRY_PASS_ID, mat4id.value, mat4id.value);
 		bgfx::setViewRect(C_GEOMETRY_PASS_ID, 0, 0, width, height);
 
@@ -136,12 +147,13 @@ namespace kokoro
 		auto& erm = instance().service<ceffect_resource_manager_service>();
 
 		bgfx::setViewFrameBuffer(C_BACKBUFFER_PASS_ID, BGFX_INVALID_HANDLE);
-		bgfx::setViewClear(C_BACKBUFFER_PASS_ID, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030FF);
+		bgfx::setViewClear(C_BACKBUFFER_PASS_ID, BGFX_CLEAR_COLOR, 0x000055FF);
 		bgfx::setViewTransform(C_BACKBUFFER_PASS_ID, mat4id.value, mat4id.value);
 		bgfx::setViewRect(C_BACKBUFFER_PASS_ID, 0, 0, width, height);
 
 		//- Set the accumulated framebuffer texture for rendering to screen
-		bgfx::setTexture(0, m_texture_chain_uniform, bgfx::getTexture(m_geometry_framebuffer));
+		const auto handle = bgfx::getTexture(m_geometry_framebuffer);
+		bgfx::setTexture(0, m_texture_chain_uniform, handle);
 
 		submit_screen_quad();
 
@@ -156,15 +168,12 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void crender_service::submit_screen_quad(float scalex /*= 1.0f*/, float scaley /*= 1.0f*/)
 	{
-		if (!bgfx::isValid(spos_uv_vertex::S_HANDLE))
-		{
-			spos_uv_vertex::init();
-		}
+		const auto& layout = spos_uv_vertex::get().layout();
 
-		if (3 == bgfx::getAvailTransientVertexBuffer(3, spos_uv_vertex::S_LAYOUT))
+		if (3 == bgfx::getAvailTransientVertexBuffer(3, layout))
 		{
 			bgfx::TransientVertexBuffer vb;
-			bgfx::allocTransientVertexBuffer(&vb, 3, spos_uv_vertex::S_LAYOUT);
+			bgfx::allocTransientVertexBuffer(&vb, 3, layout);
 			auto* vertex = (spos_uv_vertex*)vb.data;
 
 			const auto _originBottomLeft = bgfx::getCaps()->originBottomLeft;

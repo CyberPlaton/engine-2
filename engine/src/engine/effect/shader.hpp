@@ -57,8 +57,7 @@ namespace kokoro
 		option_flags_t m_flags = 0;
 	};
 
-	core::memory_ref_t	compile_shader_from_string(const char* code, const scompile_options& options);
-	core::memory_ref_t	compile_shader_from_string(const char* code, const char* name, scompile_options::shader_type type);
+	core::memory_ref_t	compile_shader_from_string(const char* code, scompile_options& options);
 	bgfx::ProgramHandle	create_compute_program(core::memory_ref_t cs);
 	bgfx::ProgramHandle	create_program(core::memory_ref_t vs, core::memory_ref_t ps);
 

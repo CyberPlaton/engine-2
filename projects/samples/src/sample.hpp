@@ -1,6 +1,7 @@
 #pragma once
 #include <engine/ilayer.hpp>
 #include <engine/world/world.hpp>
+#include <engine/render/debug.hpp>
 
 //------------------------------------------------------------------------------------------------------------------------
 class cgame final : public kokoro::ilayer
@@ -14,5 +15,6 @@ public:
 	void	update(float dt) override final;
 
 private:
+	kokoro::cdebug_drawer m_dd;
 	kokoro::world::sworld* m_world = nullptr;
 };

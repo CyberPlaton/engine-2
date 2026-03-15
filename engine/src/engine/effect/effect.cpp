@@ -69,8 +69,19 @@ namespace kokoro
 
 				if (auto mem = load_file(fx_filepath); mem && !mem->empty())
 				{
+					auto& log = instance().service<clog_service>();
+					log.debug(fmt::format("\tshader source code:\n'{}'",
+						mem->data()).c_str());
+
 					ceffect_parser parser(mem->data());
 					const auto output = parser.parse();
+
+					log.debug(fmt::format("\tvertex output code:\n'{}'",
+						output.m_vs).c_str());
+
+					log.debug(fmt::format("\tpixel output code:\n'{}'",
+						output.m_ps).c_str());
+
 
 					if (!output.m_vs.empty() && !output.m_ps.empty())
 					{
@@ -187,8 +198,11 @@ namespace kokoro
 						return {};
 					}
 				}
+			}
 
-				//- Finally, create the program from created shaders
+			//- Finally, create the program from created shaders
+			if (bgfx::isValid(effect.m_vs.m_handle) && bgfx::isValid(effect.m_ps.m_handle))
+			{
 				effect.m_program = bgfx::createProgram(effect.m_vs.m_handle, effect.m_ps.m_handle);
 			}
 
