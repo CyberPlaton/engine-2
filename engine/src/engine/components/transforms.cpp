@@ -1,5 +1,4 @@
 #include <engine/components/transforms.hpp>
-#include <registrator.hpp>
 
 namespace kokoro::world::component
 {

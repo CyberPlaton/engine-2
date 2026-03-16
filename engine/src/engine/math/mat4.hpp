@@ -1,11 +1,18 @@
 #pragma once
+#include <core/simd.hpp>
 #include <engine/math/vec4.hpp>
 #include <engine/math/vec3.hpp>
 
 namespace kokoro::math
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	struct smat4x4 final
+	struct
+#if PLATFORM_WINDOWS
+		__declspec(align(16))
+#else
+		__attribute__((aligned(16)))
+#endif
+	smat4x4 final
 	{
 		smat4x4() = default;
 		constexpr smat4x4(float s) : value{ s, 0.0f, 0.0f, 0.0f, 0.0f, s, 0.0f, 0.0f, 0.0f, 0.0f, s, 0.0f, 0.0f, 0.0f, 0.0f, s } {}
@@ -46,11 +53,34 @@ namespace kokoro::math
 	inline vec4_t operator*(const smat4x4& m, const vec4_t& v)
 	{
 		vec4_t result;
+
+#if SIMD_ENABLE
+		//- Load data from matrix and vector into wide registers
+		auto column0 = core::simd::load(&m.value[0]);
+		auto column1 = core::simd::load(&m.value[4]);
+		auto column2 = core::simd::load(&m.value[8]);
+		auto column3 = core::simd::load(&m.value[12]);
+		auto x = core::simd::set1(v.x);
+		auto y = core::simd::set1(v.y);
+		auto z = core::simd::set1(v.z);
+		auto w = core::simd::set1(v.w);
+
+		//- Multiply the individual columns:
+		//- m.value[i] * v.j, where j is x, y, z and w respectively
+		auto rx = core::simd::mul(column0, x);
+		auto ry = core::simd::mul(column1, y);
+		auto rz = core::simd::mul(column2, z);
+		auto rw = core::simd::mul(column3, w);
+
+		auto rxyzw = core::simd::add(core::simd::add(core::simd::add(rx, ry), rz), rw);
+
+		core::simd::store(rxyzw, &result.x);
+#else
 		result.x = m.value[0] * v.x + m.value[4] * v.y + m.value[8] * v.z + m.value[12] * v.w;
 		result.y = m.value[1] * v.x + m.value[5] * v.y + m.value[9] * v.z + m.value[13] * v.w;
 		result.z = m.value[2] * v.x + m.value[6] * v.y + m.value[10] * v.z + m.value[14] * v.w;
 		result.w = m.value[3] * v.x + m.value[7] * v.y + m.value[11] * v.z + m.value[15] * v.w;
-
+#endif
 		return result;
 	}
 

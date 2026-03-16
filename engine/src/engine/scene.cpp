@@ -1,9 +1,9 @@
 #include <engine/scene.hpp>
-#include <core/io.hpp>
 #include <engine/world/component.hpp>
-#include <registrator.hpp>
 #include <engine/services/log_service.hpp>
 #include <engine.hpp>
+#include <core/io.hpp>
+#include <core/registrator.hpp>
 #include <fmt.h>
 
 namespace kokoro

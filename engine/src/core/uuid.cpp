@@ -1,5 +1,5 @@
 #include <core/uuid.hpp>
-#include <registrator.hpp>
+#include <core/registrator.hpp>
 #include <core/hash.hpp>
 #include <random>
 

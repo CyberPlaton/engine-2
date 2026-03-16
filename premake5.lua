@@ -77,6 +77,21 @@ workspace("Workspace")
 	staticruntime "Off"
 	flags{"MultiProcessorCompile"}
 
+	-- detect SIMD instruction set to be used
+	if IS_SIMD_ENABLED == true then
+		defines{"SIMD_ENABLE=1"}
+		if PLATFORM == "windows" or PLATFORM == "linux" then
+			vectorextensions("SSE4.2")
+		elseif PLATFORM == "macosx" then
+			vectorextensions("NEON")
+		else
+			print("SIMD vectorextension not available on current platform")
+			defines{"SIMD_ENABLE=0"}
+		end
+	else
+		defines{"SIMD_ENABLE=0"}
+	end
+
 	-- setup variables
 	WORKSPACE_DIR = os.getcwd()
 	VENDOR_DIR = path.join(WORKSPACE_DIR, "vendor")

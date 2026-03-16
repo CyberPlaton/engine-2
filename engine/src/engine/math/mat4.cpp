@@ -138,10 +138,28 @@ namespace kokoro::math
 	//------------------------------------------------------------------------------------------------------------------------
 	smat4x4& smat4x4::translate(const vec3_t& v)
 	{
+#if SIMD_ENABLE
+		auto column0 = core::simd::load(&value[0]);
+		auto column1 = core::simd::load(&value[4]);
+		auto column2 = core::simd::load(&value[8]);
+		auto column3 = core::simd::load(&value[12]);
+		auto x = core::simd::set1(v.x);
+		auto y = core::simd::set1(v.y);
+		auto z = core::simd::set1(v.z);
+
+		auto rx = core::simd::mul(column0, x);
+		auto ry = core::simd::mul(column1, y);
+		auto rz = core::simd::mul(column2, z);
+
+		auto rxyz = core::simd::add(core::simd::add(core::simd::add(rx, ry), rz), column3);
+
+		core::simd::store(rxyz, &value[12]);
+#else
 		value[12] += value[0] * v.x + value[4] * v.y + value[8] * v.z;
 		value[13] += value[1] * v.x + value[5] * v.y + value[9] * v.z;
 		value[14] += value[2] * v.x + value[6] * v.y + value[10] * v.z;
 		value[15] += value[3] * v.x + value[7] * v.y + value[11] * v.z;
+#endif
 		return *this;
 	}
 

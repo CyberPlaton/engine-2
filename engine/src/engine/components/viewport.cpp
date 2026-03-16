@@ -1,5 +1,4 @@
 #include <engine/components/viewport.hpp>
-#include <registrator.hpp>
 
 namespace kokoro::world::component
 {

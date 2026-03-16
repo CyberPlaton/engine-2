@@ -1,5 +1,4 @@
 #include <engine/components/camera.hpp>
-#include <registrator.hpp>
 
 namespace kokoro::world::component
 {

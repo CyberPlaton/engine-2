@@ -3,7 +3,13 @@
 namespace kokoro::math
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	struct svec4 final
+	struct
+#if PLATFORM_WINDOWS
+		__declspec(align(16))
+#else
+		__attribute__((aligned(16)))
+#endif
+		svec4 final
 	{
 		svec4() = default;
 		constexpr svec4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}

@@ -10,7 +10,7 @@
 #include <core/hash.hpp>
 #include <core/mutex.hpp>
 #include <core/uuid.hpp>
-#include <registrator.hpp>
+#include <core/registrator.hpp>
 #include <array>
 #include <unordered_set>
 #include <unordered_map>

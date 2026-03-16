@@ -4,6 +4,7 @@ IS_LOGGING_ENABLED				= true	-- Enable log output
 IS_WARNING_AND_ERRORS_ENABLED	= false	-- Enable compiler warnings and warning as errors messages
 IS_ECS_DEBUG_INFO_ENABLED		= true	-- Enabled gathering debug information about modules, systems, entities and their components etc.
 IS_ADRESS_SANITIZE_ENABLED		= false	-- Enabled adress sanitizer for deeper checking. Available for windows.
+IS_SIMD_ENABLED					= true	-- Enabled usage of SIMD on available platforms
 
 ------------------------------------------------------------------------------------------------------------------------
 function isempty(s)

@@ -1,5 +1,4 @@
 #include <engine/world/component.hpp>
-#include <registrator.hpp>
 
 RTTR_REGISTRATION
 {

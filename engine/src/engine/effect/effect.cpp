@@ -6,7 +6,7 @@
 #include <engine/services/log_service.hpp>
 #include <core/io.hpp>
 #include <core/mutex.hpp>
-#include <registrator.hpp>
+#include <core/registrator.hpp>
 #include <engine.hpp>
 #include <fmt.h>
 #include <unordered_map>

@@ -1,5 +1,5 @@
 #include <engine/math/vec4.hpp>
-#include <registrator.hpp>
+#include <core/registrator.hpp>
 
 namespace kokoro::math
 {

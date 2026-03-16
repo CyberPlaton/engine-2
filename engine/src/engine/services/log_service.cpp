@@ -11,11 +11,11 @@ namespace kokoro
 		public:
 			cspdlog_writer()
 			{
+				const char* name = nullptr;
 #if DEBUG || HYBRID
-				const char* name;
-#if PLATFORM_WINDOWS
+	#if PLATFORM_WINDOWS
 				AllocConsole();
-#endif
+	#endif
 #if DEBUG
 				name = "Debug";
 #elif HYBRID

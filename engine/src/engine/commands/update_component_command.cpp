@@ -2,8 +2,8 @@
 #include <engine/world/world.hpp>
 #include <engine/services/log_service.hpp>
 #include <engine.hpp>
+#include <core/registrator.hpp>
 #include <fmt.h>
-#include <registrator.hpp>
 
 namespace kokoro
 {

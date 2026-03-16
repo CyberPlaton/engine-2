@@ -1,9 +1,9 @@
 #pragma once
 #include <string_view>
 #include <core/io.hpp>
+#include <core/registrator.hpp>
 #include <rttr.h>
 #include <nlohmann.h>
-#include <registrator.hpp>
 
 //-------------------------------------------------------------------------------------------------------------------------
 #define __DECLARE_COMPONENT_IMPL__(c) \
