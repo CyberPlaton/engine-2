@@ -1,5 +1,6 @@
 #include <engine/math/mat4.hpp>
-#include <math.h>
+#include <core/profile.hpp>
+#include <bx.h>
 
 namespace kokoro::math
 {
@@ -166,16 +167,83 @@ namespace kokoro::math
 	//------------------------------------------------------------------------------------------------------------------------
 	smat4x4& smat4x4::scale(const vec3_t& v)
 	{
-		value[0] *= v.x; value[1] *= v.x; value[2] *= v.x; value[3] *= v.x;
-		value[4] *= v.y; value[5] *= v.y; value[6] *= v.y; value[7] *= v.y;
-		value[8] *= v.z; value[9] *= v.z; value[10] *= v.z; value[11] *= v.z;
+#if SIMD_ENABLE
+		auto column0 = core::simd::load(&value[0]);
+		auto column1 = core::simd::load(&value[4]);
+		auto column2 = core::simd::load(&value[8]);
+		auto x = core::simd::set1(v.x);
+		auto y = core::simd::set1(v.y);
+		auto z = core::simd::set1(v.z);
+
+		core::simd::store(core::simd::mul(column0, x), &value[0]);
+		core::simd::store(core::simd::mul(column1, y), &value[4]);
+		core::simd::store(core::simd::mul(column2, z), &value[8]);
+#else
+		value[0] *= v.x;
+		value[1] *= v.x;
+		value[2] *= v.x;
+		value[3] *= v.x;
+
+		value[4] *= v.y;
+		value[5] *= v.y;
+		value[6] *= v.y;
+		value[7] *= v.y;
+
+		value[8] *= v.z;
+		value[9] *= v.z;
+		value[10] *= v.z;
+		value[11] *= v.z;
+#endif
 		return *this;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	smat4x4& smat4x4::rotate(const vec3_t& v)
 	{
-		if(v.x != 0.0f)
+#if SIMD_ENABLE
+		if (v.x != 0.0f)
+		{
+			const core::simd::v128_t angle = core::simd::set1(v.x);
+			const core::simd::v128_t c = core::simd::cos(angle);
+			const core::simd::v128_t s = core::simd::sin(angle);
+			const core::simd::v128_t neg_s = core::simd::mul(s, core::simd::set1(-1.0f));
+
+			core::simd::v128_t col1 = core::simd::load(&value[4]);
+			core::simd::v128_t col2 = core::simd::load(&value[8]);
+
+			core::simd::store(core::simd::madd(col1, c, core::simd::mul(col2, s)), &value[4]);
+			core::simd::store(core::simd::madd(col1, neg_s, core::simd::mul(col2, c)), &value[8]);
+		}
+
+		if (v.y != 0.0f)
+		{
+			const core::simd::v128_t angle = core::simd::set1(v.y);
+			const core::simd::v128_t c = core::simd::cos(angle);
+			const core::simd::v128_t s = core::simd::sin(angle);
+			const core::simd::v128_t neg_s = core::simd::mul(s, core::simd::set1(-1.0f));
+
+			core::simd::v128_t col0 = core::simd::load(&value[0]);
+			core::simd::v128_t col2 = core::simd::load(&value[8]);
+
+			core::simd::store(core::simd::madd(col0, c, core::simd::mul(col2, neg_s)), &value[0]);
+			core::simd::store(core::simd::madd(col0, s, core::simd::mul(col2, c)), &value[8]);
+		}
+
+		if (v.z != 0.0f)
+		{
+			const core::simd::v128_t angle = core::simd::set1(v.z);
+			const core::simd::v128_t c = core::simd::cos(angle);
+			const core::simd::v128_t s = core::simd::sin(angle);
+			const core::simd::v128_t neg_s = core::simd::mul(s, core::simd::set1(-1.0f));
+
+			core::simd::v128_t col0 = core::simd::load(&value[0]);
+			core::simd::v128_t col1 = core::simd::load(&value[4]);
+
+			core::simd::store(core::simd::madd(col0, c, core::simd::mul(col1, s)), &value[0]);
+			core::simd::store(core::simd::madd(col0, neg_s, core::simd::mul(col1, c)), &value[4]);
+		}
+#else
+		if (v.x != 0.0f)
 		{
 
 			const auto c = cosf(v.x);
@@ -212,6 +280,7 @@ namespace kokoro::math
 				value[4 + i] = v0 * -s + v1 * c;
 			}
 		}
+#endif
 		return *this;
 	}
 
