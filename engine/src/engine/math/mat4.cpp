@@ -1,6 +1,4 @@
 #include <engine/math/mat4.hpp>
-#include <core/profile.hpp>
-#include <bx.h>
 
 namespace kokoro::math
 {
