@@ -93,14 +93,13 @@ namespace kokoro
 			core::cscoped_mutex m(m_instances_mutex);
 
 			do_destroy(inst);
+
+			auto* ptr = reinterpret_cast<sinstance*>(inst);
+			ptr->m_path.clear();
+			ptr->m_snapshot = nullptr;
+			(*inst) = std::move(TResource{});
+			m_free_handles.push(handle);
 		}
-
-		core::cscoped_mutex m(m_instances_mutex);
-
-		//- Find and erase entry from instances
-		const auto it = m_instances.begin() + (handle - static_cast<resource_handle_t>(m_free_handles.size()));
-		m_instances.erase(it);
-		m_free_handles.push(handle);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
