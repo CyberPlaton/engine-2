@@ -16,7 +16,7 @@
 #if defined(_MSC_VER)
 	#define SIMDCALL __vectorcall
 #else
-	#define SIMDCALL
+	#define SIMDCALL __fastcall
 #endif
 
 namespace kokoro::core::simd
@@ -102,6 +102,24 @@ namespace kokoro::core::simd
 #endif
 	}
 
+	//- a - b
+	//------------------------------------------------------------------------------------------------------------------------
+	inline v128_t SIMDCALL		sub(v128_t a, v128_t b)
+	{
+#if defined(KOKORO_SIMD_SSE)
+		return _mm_sub_ps(a, b);
+#elif defined(KOKORO_SIMD_NEON)
+		return vsubq_f32(a, b);
+#else
+		v128_t output;
+		for (auto i = 0; i < 4; ++i)
+		{
+			output.data[i] = a.data[i] - b.data[i];
+		}
+		return output;
+#endif
+	}
+
 	//- a * b
 	//------------------------------------------------------------------------------------------------------------------------
 	inline v128_t SIMDCALL		mul(v128_t a, v128_t b)
@@ -115,6 +133,24 @@ namespace kokoro::core::simd
 		for (auto i = 0; i < 4; ++i)
 		{
 			output.data[i] = a.data[i] * b.data[i];
+		}
+		return output;
+#endif
+	}
+
+	//- a / b
+	//------------------------------------------------------------------------------------------------------------------------
+	inline v128_t SIMDCALL		div(v128_t a, v128_t b)
+	{
+#if defined(KOKORO_SIMD_SSE)
+		return _mm_div_ps(a, b);
+#elif defined(KOKORO_SIMD_NEON)
+		return vdivq_f32(a, b);
+#else
+		v128_t output;
+		for (auto i = 0; i < 4; ++i)
+		{
+			output.data[i] = a.data[i] / b.data[i];
 		}
 		return output;
 #endif
@@ -136,42 +172,6 @@ namespace kokoro::core::simd
 		}
 		return output;
 #endif
-	}
-
-	//- sin(a)
-	//------------------------------------------------------------------------------------------------------------------------
-	inline v128_t SIMDCALL		sin(v128_t a)
-	{
-#if SIMD_ENABLE
-		static const auto C_C3	= -0.166666666f;
-		static const auto C_C5	= 0.008333333f;
-		static const auto C_C7	= -0.000198412f;
-
-		const v128_t c3 = set1(C_C3);
-		const v128_t c5 = set1(C_C5);
-		const v128_t c7 = set1(C_C7);
-		const v128_t x = a;
-		const v128_t x2 = mul(x, x);
-		const v128_t x3 = mul(x2, x);
-		const v128_t x5 = mul(x3, x2);
-		const v128_t x7 = mul(x5, x2);
-		return add(x, madd(x3, c3, madd(x5, c5, mul(x7, c7))));
-#else
-		v128_t output;
-		for (auto i = 0; i < 4; ++i)
-		{
-			output.data[i] = sinf(a.data[i]);
-		}
-		return output;
-#endif
-	}
-
-	//- cos(a)
-	//------------------------------------------------------------------------------------------------------------------------
-	inline v128_t SIMDCALL		cos(v128_t a)
-	{
-		static const auto C_PI_2 = 1.57079632679f;
-		return sin(add(a, set1(C_PI_2)));
 	}
 
 } //- kokoro::core::simd

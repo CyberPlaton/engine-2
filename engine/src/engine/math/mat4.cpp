@@ -1,5 +1,6 @@
 #include <engine/math/mat4.hpp>
 #include <core/profile.hpp>
+#include <cmath>
 
 namespace kokoro::math
 {
@@ -205,49 +206,6 @@ namespace kokoro::math
 	{
 		CPU_ZONE;
 
-#if SIMD_ENABLE
-		if (v.x != 0.0f)
-		{
-			const core::simd::v128_t angle = core::simd::set1(v.x);
-			const core::simd::v128_t c = core::simd::cos(angle);
-			const core::simd::v128_t s = core::simd::sin(angle);
-			const core::simd::v128_t neg_s = core::simd::mul(s, core::simd::set1(-1.0f));
-
-			core::simd::v128_t col1 = core::simd::load(&value[4]);
-			core::simd::v128_t col2 = core::simd::load(&value[8]);
-
-			core::simd::store(core::simd::madd(col1, c, core::simd::mul(col2, s)), &value[4]);
-			core::simd::store(core::simd::madd(col1, neg_s, core::simd::mul(col2, c)), &value[8]);
-		}
-
-		if (v.y != 0.0f)
-		{
-			const core::simd::v128_t angle = core::simd::set1(v.y);
-			const core::simd::v128_t c = core::simd::cos(angle);
-			const core::simd::v128_t s = core::simd::sin(angle);
-			const core::simd::v128_t neg_s = core::simd::mul(s, core::simd::set1(-1.0f));
-
-			core::simd::v128_t col0 = core::simd::load(&value[0]);
-			core::simd::v128_t col2 = core::simd::load(&value[8]);
-
-			core::simd::store(core::simd::madd(col0, c, core::simd::mul(col2, neg_s)), &value[0]);
-			core::simd::store(core::simd::madd(col0, s, core::simd::mul(col2, c)), &value[8]);
-		}
-
-		if (v.z != 0.0f)
-		{
-			const core::simd::v128_t angle = core::simd::set1(v.z);
-			const core::simd::v128_t c = core::simd::cos(angle);
-			const core::simd::v128_t s = core::simd::sin(angle);
-			const core::simd::v128_t neg_s = core::simd::mul(s, core::simd::set1(-1.0f));
-
-			core::simd::v128_t col0 = core::simd::load(&value[0]);
-			core::simd::v128_t col1 = core::simd::load(&value[4]);
-
-			core::simd::store(core::simd::madd(col0, c, core::simd::mul(col1, s)), &value[0]);
-			core::simd::store(core::simd::madd(col0, neg_s, core::simd::mul(col1, c)), &value[4]);
-		}
-#else
 		if (v.x != 0.0f)
 		{
 
@@ -285,7 +243,6 @@ namespace kokoro::math
 				value[4 + i] = v0 * -s + v1 * c;
 			}
 		}
-#endif
 		return *this;
 	}
 
