@@ -7,132 +7,142 @@ namespace kokoro::math
 	//------------------------------------------------------------------------------------------------------------------------
 	smat4x4 smat4x4::inverse() const
 	{
-		const float* m = value;
+		CPU_ZONE;
 
+		const auto* m = value;
 		smat4x4 inv;
-		float* invOut = inv.value;
+		float* out = inv.value;
 
-		invOut[0] = m[5] * m[10] * m[15] -
+		out[0] = m[5] * m[10] * m[15] -
 			m[5] * m[11] * m[14] -
 			m[9] * m[6] * m[15] +
 			m[9] * m[7] * m[14] +
 			m[13] * m[6] * m[11] -
 			m[13] * m[7] * m[10];
 
-		invOut[4] = -m[4] * m[10] * m[15] +
+		out[4] = -m[4] * m[10] * m[15] +
 			m[4] * m[11] * m[14] +
 			m[8] * m[6] * m[15] -
 			m[8] * m[7] * m[14] -
 			m[12] * m[6] * m[11] +
 			m[12] * m[7] * m[10];
 
-		invOut[8] = m[4] * m[9] * m[15] -
+		out[8] = m[4] * m[9] * m[15] -
 			m[4] * m[11] * m[13] -
 			m[8] * m[5] * m[15] +
 			m[8] * m[7] * m[13] +
 			m[12] * m[5] * m[11] -
 			m[12] * m[7] * m[9];
 
-		invOut[12] = -m[4] * m[9] * m[14] +
+		out[12] = -m[4] * m[9] * m[14] +
 			m[4] * m[10] * m[13] +
 			m[8] * m[5] * m[14] -
 			m[8] * m[6] * m[13] -
 			m[12] * m[5] * m[10] +
 			m[12] * m[6] * m[9];
 
-		invOut[1] = -m[1] * m[10] * m[15] +
+		out[1] = -m[1] * m[10] * m[15] +
 			m[1] * m[11] * m[14] +
 			m[9] * m[2] * m[15] -
 			m[9] * m[3] * m[14] -
 			m[13] * m[2] * m[11] +
 			m[13] * m[3] * m[10];
 
-		invOut[5] = m[0] * m[10] * m[15] -
+		out[5] = m[0] * m[10] * m[15] -
 			m[0] * m[11] * m[14] -
 			m[8] * m[2] * m[15] +
 			m[8] * m[3] * m[14] +
 			m[12] * m[2] * m[11] -
 			m[12] * m[3] * m[10];
 
-		invOut[9] = -m[0] * m[9] * m[15] +
+		out[9] = -m[0] * m[9] * m[15] +
 			m[0] * m[11] * m[13] +
 			m[8] * m[1] * m[15] -
 			m[8] * m[3] * m[13] -
 			m[12] * m[1] * m[11] +
 			m[12] * m[3] * m[9];
 
-		invOut[13] = m[0] * m[9] * m[14] -
+		out[13] = m[0] * m[9] * m[14] -
 			m[0] * m[10] * m[13] -
 			m[8] * m[1] * m[14] +
 			m[8] * m[2] * m[13] +
 			m[12] * m[1] * m[10] -
 			m[12] * m[2] * m[9];
 
-		invOut[2] = m[1] * m[6] * m[15] -
+		out[2] = m[1] * m[6] * m[15] -
 			m[1] * m[7] * m[14] -
 			m[5] * m[2] * m[15] +
 			m[5] * m[3] * m[14] +
 			m[13] * m[2] * m[7] -
 			m[13] * m[3] * m[6];
 
-		invOut[6] = -m[0] * m[6] * m[15] +
+		out[6] = -m[0] * m[6] * m[15] +
 			m[0] * m[7] * m[14] +
 			m[4] * m[2] * m[15] -
 			m[4] * m[3] * m[14] -
 			m[12] * m[2] * m[7] +
 			m[12] * m[3] * m[6];
 
-		invOut[10] = m[0] * m[5] * m[15] -
+		out[10] = m[0] * m[5] * m[15] -
 			m[0] * m[7] * m[13] -
 			m[4] * m[1] * m[15] +
 			m[4] * m[3] * m[13] +
 			m[12] * m[1] * m[7] -
 			m[12] * m[3] * m[5];
 
-		invOut[14] = -m[0] * m[5] * m[14] +
+		out[14] = -m[0] * m[5] * m[14] +
 			m[0] * m[6] * m[13] +
 			m[4] * m[1] * m[14] -
 			m[4] * m[2] * m[13] -
 			m[12] * m[1] * m[6] +
 			m[12] * m[2] * m[5];
 
-		invOut[3] = -m[1] * m[6] * m[11] +
+		out[3] = -m[1] * m[6] * m[11] +
 			m[1] * m[7] * m[10] +
 			m[5] * m[2] * m[11] -
 			m[5] * m[3] * m[10] -
 			m[9] * m[2] * m[7] +
 			m[9] * m[3] * m[6];
 
-		invOut[7] = m[0] * m[6] * m[11] -
+		out[7] = m[0] * m[6] * m[11] -
 			m[0] * m[7] * m[10] -
 			m[4] * m[2] * m[11] +
 			m[4] * m[3] * m[10] +
 			m[8] * m[2] * m[7] -
 			m[8] * m[3] * m[6];
 
-		invOut[11] = -m[0] * m[5] * m[11] +
+		out[11] = -m[0] * m[5] * m[11] +
 			m[0] * m[7] * m[9] +
 			m[4] * m[1] * m[11] -
 			m[4] * m[3] * m[9] -
 			m[8] * m[1] * m[7] +
 			m[8] * m[3] * m[5];
 
-		invOut[15] = m[0] * m[5] * m[10] -
+		out[15] = m[0] * m[5] * m[10] -
 			m[0] * m[6] * m[9] -
 			m[4] * m[1] * m[10] +
 			m[4] * m[2] * m[9] +
 			m[8] * m[1] * m[6] -
 			m[8] * m[2] * m[5];
 
-		float det = m[0] * invOut[0] + m[1] * invOut[4] + m[2] * invOut[8] + m[3] * invOut[12];
+		const auto det = m[0] * out[0] + m[1] * out[4] + m[2] * out[8] + m[3] * out[12];
 
 		if (det == 0) return {};
 
+#if SIMD_ENABLE
+		core::simd::v128_t d = core::simd::set1(1.0f / det);
+		core::simd::store(core::simd::mul(core::simd::load(&out[0]), d), &out[0]);
+		core::simd::store(core::simd::mul(core::simd::load(&out[4]), d), &out[4]);
+		core::simd::store(core::simd::mul(core::simd::load(&out[8]), d), &out[8]);
+		core::simd::store(core::simd::mul(core::simd::load(&out[12]), d), &out[12]);
+#else
 		det = 1.0f / det;
 
 		for (int i = 0; i < 16; i++)
-			invOut[i] = invOut[i] * det;
-
+		{
+			out[i] = out[i] * det;
+		}
+#endif
 		return inv;
 	}
 
