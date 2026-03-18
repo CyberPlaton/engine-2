@@ -1,4 +1,5 @@
 #include <engine/math/mat4.hpp>
+#include <core/profile.hpp>
 
 namespace kokoro::math
 {
@@ -137,6 +138,8 @@ namespace kokoro::math
 	//------------------------------------------------------------------------------------------------------------------------
 	smat4x4& smat4x4::translate(const vec3_t& v)
 	{
+		CPU_ZONE;
+
 #if SIMD_ENABLE
 		auto column0 = core::simd::load(&value[0]);
 		auto column1 = core::simd::load(&value[4]);
@@ -165,6 +168,8 @@ namespace kokoro::math
 	//------------------------------------------------------------------------------------------------------------------------
 	smat4x4& smat4x4::scale(const vec3_t& v)
 	{
+		CPU_ZONE;
+
 #if SIMD_ENABLE
 		auto column0 = core::simd::load(&value[0]);
 		auto column1 = core::simd::load(&value[4]);
@@ -198,6 +203,8 @@ namespace kokoro::math
 	//------------------------------------------------------------------------------------------------------------------------
 	smat4x4& smat4x4::rotate(const vec3_t& v)
 	{
+		CPU_ZONE;
+
 #if SIMD_ENABLE
 		if (v.x != 0.0f)
 		{
