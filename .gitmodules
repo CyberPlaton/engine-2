@@ -7,6 +7,3 @@
 [submodule "3rdparty/flecs/flecs"]
 	path = 3rdparty/flecs/flecs
 	url = https://github.com/CyberPlaton/flecs.git
-[submodule "3rdparty/tracy/tracy"]
-	path = 3rdparty/tracy/tracy
-	url = https://github.com/CyberPlaton/tracy.git
