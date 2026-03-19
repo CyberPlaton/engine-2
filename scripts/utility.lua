@@ -1,5 +1,5 @@
-IS_PROFILE_ENABLED				= false	-- Enable profiling, either with in-engine or external tools
-IS_TRACY_ENABLED				= false	-- Enable profiling with Tracy
+IS_PROFILE_ENABLED				= true	-- Enable profiling, either with in-engine or external tools
+IS_TRACY_ENABLED				= true	-- Enable profiling with Tracy
 IS_LOGGING_ENABLED				= true	-- Enable log output
 IS_WARNING_AND_ERRORS_ENABLED	= false	-- Enable compiler warnings and warning as errors messages
 IS_ECS_DEBUG_INFO_ENABLED		= true	-- Enabled gathering debug information about modules, systems, entities and their components etc.

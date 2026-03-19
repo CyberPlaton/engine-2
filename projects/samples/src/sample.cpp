@@ -39,7 +39,7 @@ void cgame::update(float dt)
 		.cull(kokoro::cdebug_drawer::culling_mode_ccw)
 		.depth_test(kokoro::cdebug_drawer::depth_test_mode_none)
 		.blend(kokoro::cdebug_drawer::blending_mode_alpha)
-		.fill(false);
+		.wireframe(true);
 
 	const auto unproject = [](const kokoro::math::mat4_t& mtx, const kokoro::math::vec4_t& p)
 		{
@@ -77,25 +77,46 @@ void cgame::update(float dt)
 		.rotate(kokoro::math::vec3_t(0.0f, 0.0f, accumulator))
 		.translate(kokoro::math::vec3_t(0.0f, 0.0f, 0.0f));
 
-	kokoro::math::vec3_t v0 = { 0.0f, 1.0f, 0.0f };
-	kokoro::math::vec3_t v1 = { 1.0f, -1.0f, 0.0f };
-	kokoro::math::vec3_t v2 = { -1.0f, -1.0f, 0.0f };
+	//- Drawing triangle shapes
+	{
+		kokoro::math::vec3_t v0 = { 0.0f, 1.0f, 0.0f };
+		kokoro::math::vec3_t v1 = { 1.0f, -1.0f, 0.0f };
+		kokoro::math::vec3_t v2 = { -1.0f, -1.0f, 0.0f };
 
-	kokoro::math::vec3_t v3 = { 0.0f, 1.5f, 0.0f };
-	kokoro::math::vec3_t v4 = { 1.5f, -1.25f, 0.0f };
-	kokoro::math::vec3_t v5 = { -1.5f, -0.75f, 0.0f };
+		kokoro::math::vec3_t v3 = { 0.0f, 1.5f, 0.0f };
+		kokoro::math::vec3_t v4 = { 1.5f, -1.25f, 0.0f };
+		kokoro::math::vec3_t v5 = { -1.5f, -0.75f, 0.0f };
 
-	m_dd.color(0xff22aaee)
-		.triangle(
-			mtx * v0,
-			mtx * v1,
-			mtx * v2)
-		.color(0xff11ff00)
-		.triangle(
-			mtx * v3,
-			mtx * v4,
-			mtx * v5);
+		m_dd.triangle(
+				mtx * v0,
+				mtx * v1,
+				mtx * v2,
+				0xff22aaee)
+			.triangle(
+				mtx * v3,
+				mtx * v4,
+				mtx * v5,
+				0xff11ff00)
+			.submit();
+	}
 
-	m_dd.submit();
+	//- Drawing quads
+	{
+		kokoro::math::vec3_t v0 = { 0.0f,  1.0f, 0.0f }; // Top
+		kokoro::math::vec3_t v1 = { 1.0f,  0.0f, 0.0f }; // Right
+		kokoro::math::vec3_t v2 = { 0.0f, -1.0f, 0.0f }; // Bottom
+		kokoro::math::vec3_t v3 = { -1.0f,  0.0f, 0.0f }; // Left
+
+		m_dd.quad(mtx * v0, mtx * v1, mtx * v2, mtx * v3, 0xff552211)
+			.submit();
+	}
+
+	//- Drawing lines
+	{
+		kokoro::math::vec3_t v0 = { 0.0f,  0.0f, 0.0f }; // Top
+		kokoro::math::vec3_t v1 = { 100.0f,  50.0f, 0.0f }; // Right
+		m_dd.line(v0, v1, 0xff0000ff)
+			.submit();
+	}
 	m_dd.frame();
 }

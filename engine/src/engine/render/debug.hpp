@@ -82,6 +82,7 @@ namespace kokoro
 									float depth = 1.0f,
 									uint8_t stencil = 0);
 		void					frame();																			//- Submit everything we gathered for all render types
+
 		cdebug_drawer&			view_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);							//- Set view region. Primitives outside will be clipped
 		cdebug_drawer&			render_type(type value);															//- Set the current render type we want to be working on, note that this does not enforce a flush
 		cdebug_drawer&			depth_test(depth_test_mode mode);													//- Set the depth test mode to be used for rendering state
@@ -90,23 +91,19 @@ namespace kokoro
 		cdebug_drawer&			effect(render_effect value);														//- Set the effect to be used for rendering, as fallback a default effect is used
 		cdebug_drawer&			submit() { flush(); return *this; }													//- Submit what we gathered so far for current render type
 		cdebug_drawer&			color(uint32_t value);																//- Color that will be set for each submitted vertex
+		cdebug_drawer&			wireframe(const bool value);														//- Whether to fill the object with color or interpret as lines
+
 		cdebug_drawer&			transform(const math::mat4_t& mtx);													//- Matrix used for transforming each submitted vertex
-		cdebug_drawer&			fill(const bool value);																//- Whether to fill the object with color or interpret as lines
+		cdebug_drawer&			translate(const math::vec3_t& value);												//- Set translation for transformation matrix
+		cdebug_drawer&			scale(const math::vec3_t& value);													//- Set scale for transformation matrix
+		cdebug_drawer&			rotate(const math::vec3_t& value);													//- Set rotation for transformation matrix
+
 		cdebug_drawer&			triangle(const math::vec3_t& v0, const math::vec3_t& v1,							//- Submit a single triangle
 										const math::vec3_t& v2, uint32_t color = 0);
 		cdebug_drawer&			quad(const math::vec3_t& v0, const math::vec3_t& v1,								//- Submit a single quad
 									const math::vec3_t& v2, const math::vec3_t& v3, uint32_t color = 0);
 
-		cdebug_drawer&			line(const math::vec3_t& v0, const math::vec3_t& v1)
-		{
-			auto new_state = state().m_state;
-			new_state &= ~BGFX_STATE_PT_MASK;
-			new_state |= BGFX_STATE_PT_LINES;
-			set_state(new_state);
-
-			push_vertex(v0.x, v0.y, v0.z, state().m_color);
-			push_vertex(v1.x, v1.y, v1.z, state().m_color);
-		}
+		cdebug_drawer&			line(const math::vec3_t& v0, const math::vec3_t& v1, uint32_t color = 0);			//- Submit a single line
 
 	private:
 		struct srender_state
@@ -125,7 +122,7 @@ namespace kokoro
 			uint16_t m_view_y					= 0;
 			uint16_t m_view_w					= 0;
 			uint16_t m_view_h					= 0;
-			bool m_fill							= true;
+			bool m_wireframe					= false;
 		};
 
 		struct sshape_data

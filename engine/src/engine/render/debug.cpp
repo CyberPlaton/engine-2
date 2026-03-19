@@ -1,26 +1,29 @@
 #include <engine/render/debug.hpp>
+#include <core/profile.hpp>
 
 namespace kokoro
 {
 	namespace
 	{
 		constexpr auto C_MAT4_ID = math::mat4_t(1.0f);
-		static const filepath_t C_DEFAULT_SHAPE_EFFECT_FILEPATH = "engine/effects/debug/default.effect";
-		static const filepath_t C_DEFAULT_SPRITE_EFFECT_FILEPATH = "engine/effects/debug/default.effect";
-		static const filepath_t C_DEFAULT_TEXT_EFFECT_FILEPATH = "engine/effects/debug/default.effect";
+		constexpr std::array<std::string_view, 3> C_EFFECTS =
+		{
+			"engine/effects/debug/default.effect",
+			"engine/effects/debug/default.effect",
+			"engine/effects/debug/default.effect"
+		};
+
 	} //- unnamed
 
 	//------------------------------------------------------------------------------------------------------------------------
 	bool cdebug_drawer::init()
 	{
 		auto& erm = instance().service<ceffect_resource_manager_service>();
-		m_shape_data.m_state.m_effect = erm.instantiate(C_DEFAULT_SHAPE_EFFECT_FILEPATH);
-		m_sprite_data.m_state.m_effect = erm.instantiate(C_DEFAULT_SHAPE_EFFECT_FILEPATH);
-		m_text_data.m_state.m_effect = erm.instantiate(C_DEFAULT_SHAPE_EFFECT_FILEPATH);
+		m_shape_data.m_state.m_effect = erm.instantiate(C_EFFECTS[0]);
+		m_sprite_data.m_state.m_effect = erm.instantiate(C_EFFECTS[1]);
+		m_text_data.m_state.m_effect = erm.instantiate(C_EFFECTS[2]);
 
 		//- Setup for render types
-
-
 		return true;
 	}
 
@@ -37,6 +40,8 @@ namespace kokoro
 	cdebug_drawer& cdebug_drawer::begin(bgfx::ViewId view, bgfx::FrameBufferHandle fbh, uint16_t flags /*= 0*/, uint32_t color /*= 0*/,
 		float depth /*= 1.0f*/, uint8_t stencil /*= 0*/)
 	{
+		CPU_ZONE;
+
 		auto& s = state();
 		s.m_view = view;
 		s.m_fbh = fbh;
@@ -50,6 +55,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void cdebug_drawer::frame()
 	{
+		CPU_ZONE;
+
 		//- 
 		for (auto i = 0; i < (int)type_count; ++i)
 		{
@@ -180,6 +187,18 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::effect(render_effect value)
+	{
+		const auto i = static_cast<uint64_t>(value);
+		if (i < C_EFFECTS.size())
+		{
+			auto& erm = instance().service<ceffect_resource_manager_service>();
+			state().m_effect = erm.instantiate(C_EFFECTS[i]);
+		}
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
 	cdebug_drawer& cdebug_drawer::color(uint32_t value)
 	{
 		state().m_color = value;
@@ -194,27 +213,49 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	cdebug_drawer& cdebug_drawer::fill(const bool value)
+	cdebug_drawer& cdebug_drawer::translate(const math::vec3_t& value)
 	{
-		state().m_fill = value;
+		state().m_matrix.translate(value);
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::scale(const math::vec3_t& value)
+	{
+		state().m_matrix.scale(value);
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::rotate(const math::vec3_t& value)
+	{
+		state().m_matrix.rotate(value);
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::wireframe(const bool value)
+	{
+		state().m_wireframe = value;
 		return *this;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	cdebug_drawer& cdebug_drawer::triangle(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2, uint32_t color /*= 0*/)
 	{
+		CPU_ZONE;
+
 		//- Set state for drawing either filled triangles or lines
 		auto new_state = state().m_state;
 		new_state &= ~BGFX_STATE_PT_MASK;
-		if (!state().m_fill)
+		if (state().m_wireframe)
 		{
-
 			new_state |= BGFX_STATE_PT_LINES | BGFX_STATE_LINEAA;
 		}
 		set_state(new_state);
 
 		const auto index_offset = vertex_count();
-		if (!state().m_fill)
+		if (state().m_wireframe)
 		{
 			//- Push required indices to correctly close the triangle
 			push_index(index_offset + 0);
@@ -235,6 +276,31 @@ namespace kokoro
 		push_vertex(v0.x, v0.y, v0.z, c);
 		push_vertex(v1.x, v1.y, v1.z, c);
 		push_vertex(v2.x, v2.y, v2.z, c);
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::quad(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2, const math::vec3_t& v3,
+		uint32_t color /*= 0*/)
+	{
+		triangle(v0, v1, v2, color);
+		triangle(v0, v2, v3, color);
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::line(const math::vec3_t& v0, const math::vec3_t& v1, uint32_t color /*= 0*/)
+	{
+		CPU_ZONE;
+
+		auto new_state = state().m_state;
+		new_state &= ~BGFX_STATE_PT_MASK;
+		new_state |= BGFX_STATE_PT_LINES;
+		set_state(new_state);
+
+		const auto c = color == 0 ? state().m_color : color;
+		push_vertex(v0.x, v0.y, v0.z, c);
+		push_vertex(v1.x, v1.y, v1.z, c);
 		return *this;
 	}
 
