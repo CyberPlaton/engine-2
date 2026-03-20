@@ -5,23 +5,30 @@ namespace kokoro
 {
 	namespace
 	{
+		constexpr uint64_t C_VERTICES_RESERVE_COUNT = 50000;
+		constexpr uint64_t C_INDICES_RESERVE_COUNT = C_VERTICES_RESERVE_COUNT * 6;
 		constexpr auto C_MAT4_ID = math::mat4_t(1.0f);
-		constexpr std::array<std::string_view, 3> C_EFFECTS =
+		constexpr std::array<uint16_t, 6> C_TRIANGLE_LINE_INDICES = { 0, 1, 1, 2, 2, 0};
+		constexpr std::array<uint16_t, 3> C_TRIANGLE_INDICES = { 0, 1, 2 };
+		constexpr std::array<std::string_view, 1> C_EFFECTS =
 		{
 			"engine/effects/debug/default.effect",
-			"engine/effects/debug/default.effect",
-			"engine/effects/debug/default.effect"
 		};
 
 	} //- unnamed
 
 	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer::cdebug_drawer()
+	{
+		m_vertices.reserve(C_VERTICES_RESERVE_COUNT);
+		m_indices.reserve(C_INDICES_RESERVE_COUNT);
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
 	bool cdebug_drawer::init()
 	{
 		auto& erm = instance().service<ceffect_resource_manager_service>();
-		m_shape_data.m_state.m_effect = erm.instantiate(C_EFFECTS[0]);
-		m_sprite_data.m_state.m_effect = erm.instantiate(C_EFFECTS[1]);
-		m_text_data.m_state.m_effect = erm.instantiate(C_EFFECTS[2]);
+		m_state.m_effect = erm.instantiate(C_EFFECTS[0]);
 
 		//- Setup for render types
 		return true;
@@ -31,9 +38,7 @@ namespace kokoro
 	void cdebug_drawer::shutdown()
 	{
 		auto& erm = instance().service<ceffect_resource_manager_service>();
-		erm.destroy(m_shape_data.m_state.m_effect);
-		erm.destroy(m_sprite_data.m_state.m_effect);
-		erm.destroy(m_text_data.m_state.m_effect);
+		erm.destroy(m_state.m_effect);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -43,6 +48,7 @@ namespace kokoro
 		CPU_ZONE;
 
 		auto& s = state();
+		s.m_state = C_STATE_DEFAULT;	//- Reset to default state and avoid leakage, we expect state settings on a per-frame basis anyway
 		s.m_view = view;
 		s.m_fbh = fbh;
 		s.m_clear_flags = flags;
@@ -56,12 +62,7 @@ namespace kokoro
 	void cdebug_drawer::frame()
 	{
 		CPU_ZONE;
-
-		//- 
-		for (auto i = 0; i < (int)type_count; ++i)
-		{
-			render_type((type)i).submit();
-		}
+		submit();
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -72,13 +73,6 @@ namespace kokoro
 		s.m_view_y = y;
 		s.m_view_w = w;
 		s.m_view_h = h;
-		return *this;
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	cdebug_drawer& cdebug_drawer::render_type(type value)
-	{
-		m_current_type = value == type_count ? type_primitives : value;
 		return *this;
 	}
 
@@ -241,41 +235,56 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	cdebug_drawer& cdebug_drawer::triangle(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2, uint32_t color /*= 0*/)
+	cdebug_drawer& cdebug_drawer::triangle(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2,
+		uint32_t color /*= 0*/)
 	{
 		CPU_ZONE;
 
-		//- Set state for drawing either filled triangles or lines
-		auto new_state = state().m_state;
-		new_state &= ~BGFX_STATE_PT_MASK;
-		if (state().m_wireframe)
-		{
-			new_state |= BGFX_STATE_PT_LINES | BGFX_STATE_LINEAA;
-		}
-		set_state(new_state);
+		const auto c = color == 0 ? m_state.m_color : color;
 
-		const auto index_offset = vertex_count();
-		if (state().m_wireframe)
+		if (!m_state.m_wireframe)
 		{
-			//- Push required indices to correctly close the triangle
-			push_index(index_offset + 0);
-			push_index(index_offset + 1);
-			push_index(index_offset + 1);
-			push_index(index_offset + 2);
-			push_index(index_offset + 2);
-			push_index(index_offset + 0);
+			//- Remove any topology state and handle as default triangle list
+			auto state = m_state.m_state;
+			state &= ~BGFX_STATE_PT_MASK;
+			set_state(state);
+
+			//- Set indices for triangle
+			const auto index_offset = vertex_count();
+			auto& inds = indices();
+			const auto index_count = inds.size();
+			inds.resize(index_count + C_TRIANGLE_INDICES.size());
+
+			for (auto i = 0; i < C_TRIANGLE_INDICES.size(); ++i)
+			{
+				inds[index_count + i] = index_offset + C_TRIANGLE_INDICES[i];
+			}
 		}
 		else
 		{
-			push_index(index_offset + 0);
-			push_index(index_offset + 1);
-			push_index(index_offset + 2);
+			//- Set line topology for drawing the wireframe
+			auto state = m_state.m_state;
+			state &= ~BGFX_STATE_PT_MASK;
+			state |= BGFX_STATE_PT_LINES | BGFX_STATE_LINEAA;
+			set_state(state);
+
+			//- Set indices for lines triangle
+			const auto index_offset = vertex_count();
+			auto& inds = indices();
+			const auto index_count = inds.size();
+			inds.resize(index_count + C_TRIANGLE_LINE_INDICES.size());
+
+			for (auto i = 0; i < C_TRIANGLE_LINE_INDICES.size(); ++i)
+			{
+				inds[index_count + i] = index_offset + C_TRIANGLE_LINE_INDICES[i];
+			}
 		}
 
-		const auto c = color == 0 ? state().m_color : color;
-		push_vertex(v0.x, v0.y, v0.z, c);
-		push_vertex(v1.x, v1.y, v1.z, c);
-		push_vertex(v2.x, v2.y, v2.z, c);
+		//- Set vertices for triangle
+		auto& verts = vertices();
+		verts.push_back(spos_color_uv_vertex{ v0.x, v0.y, v0.z, c, 0.0f, 1.0f });
+		verts.push_back(spos_color_uv_vertex{ v1.x, v1.y, v1.z, c, 0.0f, 1.0f });
+		verts.push_back(spos_color_uv_vertex{ v2.x, v2.y, v2.z, c, 0.0f, 1.0f });
 		return *this;
 	}
 
@@ -293,213 +302,126 @@ namespace kokoro
 	{
 		CPU_ZONE;
 
-		auto new_state = state().m_state;
-		new_state &= ~BGFX_STATE_PT_MASK;
-		new_state |= BGFX_STATE_PT_LINES;
-		set_state(new_state);
+		auto state = m_state.m_state;
+		state &= ~BGFX_STATE_PT_MASK;
+		state |= BGFX_STATE_PT_LINES | BGFX_STATE_LINEAA;
+		set_state(state);
 
-		const auto c = color == 0 ? state().m_color : color;
-		push_vertex(v0.x, v0.y, v0.z, c);
-		push_vertex(v1.x, v1.y, v1.z, c);
+		const auto c = color == 0 ? m_state.m_color : color;
+
+		auto& verts = vertices();
+		verts.push_back(spos_color_uv_vertex{ v0.x, v0.y, v0.z, c, 0.0f, 1.0f });
+		verts.push_back(spos_color_uv_vertex{ v1.x, v1.y, v1.z, c, 0.0f, 1.0f });
 		return *this;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	cdebug_drawer::srender_state& cdebug_drawer::state()
 	{
-		switch (m_current_type)
-		{
-		default:
-		case type_primitives:
-			return m_shape_data.m_state;
-		case type_sprite:
-			return m_sprite_data.m_state;
-		case type_text:
-			return m_text_data.m_state;
-		}
+		return m_state;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	void cdebug_drawer::set_state(uint64_t new_state /*= 0*/)
+	void cdebug_drawer::set_state(uint64_t value)
 	{
 		auto& curr = state();
 
-		if (new_state != 0 &&
-			new_state != curr.m_state)
+		if (value != 0 && value != curr.m_state)
 		{
 			flush();
-			curr.m_state = new_state;
+			curr.m_state = value;
 		}
 
 		bgfx::setState(curr.m_state);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	auto cdebug_drawer::indices_vector() -> std::vector<uint16_t>&
+	auto cdebug_drawer::indices() -> std::vector<uint16_t>&
 	{
-		switch (m_current_type)
-		{
-		default:
-		case type_primitives:
-			return m_shape_data.m_indices;
-		case type_sprite:
-			return m_sprite_data.m_indices;
-		case type_text:
-			return m_text_data.m_indices;
-		}
+		return m_indices;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	void cdebug_drawer::vertex_clear()
+	auto cdebug_drawer::vertices() -> std::vector<spos_color_uv_vertex>&
 	{
-		switch (m_current_type)
-		{
-		default:
-		case type_primitives:
-			m_shape_data.m_vertices.clear();
-			break;
-		case type_sprite:
-			m_sprite_data.m_vertices.clear();
-			break;
-		case type_text:
-			m_text_data.m_vertices.clear();
-			break;
-		}
+		return m_vertices;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	void* cdebug_drawer::vertex_data() const
 	{
-		switch (m_current_type)
-		{
-		default:
-		case type_primitives:
-			return (void*)m_shape_data.m_vertices.data();
-		case type_sprite:
-			return (void*)m_sprite_data.m_vertices.data();
-		case type_text:
-			return (void*)m_text_data.m_vertices.data();
-		}
-		return nullptr;
+		return reinterpret_cast<void*>(const_cast<spos_color_uv_vertex*>(m_vertices.data()));
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	uint32_t cdebug_drawer::vertex_count() const
 	{
-		switch (m_current_type)
-		{
-		default:
-		case type_primitives:
-			return static_cast<uint32_t>(m_shape_data.m_vertices.size());
-		case type_sprite:
-			return static_cast<uint32_t>(m_sprite_data.m_vertices.size());
-		case type_text:
-			return static_cast<uint32_t>(m_text_data.m_vertices.size());
-		}
-		return 0;
+		return static_cast<uint32_t>(m_vertices.size());
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	const bgfx::VertexLayout& cdebug_drawer::vertex_layout() const
 	{
-		switch (m_current_type)
-		{
-		default:
-		case type_primitives:
-			return spos_color_vertex::get().layout();
-		case type_sprite:
-			return spos_color_uv_vertex::get().layout();
-		case type_text:
-			return spos_color_uv_vertex::get().layout();
-		}
+		return spos_color_uv_vertex::get().layout();
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	bgfx::VertexLayoutHandle cdebug_drawer::vertex_handle() const
 	{
-		switch (m_current_type)
-		{
-		default:
-		case type_primitives:
-			return spos_color_vertex::get().handle();
-		case type_sprite:
-			return spos_color_uv_vertex::get().handle();
-		case type_text:
-			return spos_color_uv_vertex::get().handle();
-		}
-		return BGFX_INVALID_HANDLE;
+		return spos_color_uv_vertex::get().handle();
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	bool cdebug_drawer::submit_buffers()
+	void cdebug_drawer::submit_buffers()
 	{
-		const auto count = vertex_count();
-		if (count > 0)
+		CPU_ZONE;
+
+		const auto& layout = vertex_layout();
+		if (const auto count = vertex_count(); count > 0 && count == bgfx::getAvailTransientVertexBuffer(count, layout))
 		{
-			const auto& layout = vertex_layout();
+			bgfx::TransientVertexBuffer tvb;
+			bgfx::allocTransientVertexBuffer(&tvb, count, layout);
+			std::memcpy(tvb.data, vertex_data(), static_cast<uint64_t>(count * layout.m_stride));
+			bgfx::setVertexBuffer(0, &tvb);
 
-			if (count == bgfx::getAvailTransientVertexBuffer(count, layout))
+			const auto& inds = indices();
+			if (!inds.empty())
 			{
-				bgfx::TransientVertexBuffer tvb;
-				bgfx::allocTransientVertexBuffer(&tvb, count, layout);
-				bx::memCopy(tvb.data, vertex_data(), static_cast<uint64_t>(count * layout.m_stride));
-				bgfx::setVertexBuffer(0, &tvb);
-
-				const auto& indices = indices_vector();
-				if (!indices.empty())
-				{
-					const auto indices_count = static_cast<uint32_t>(indices.size());
-					bgfx::TransientIndexBuffer tib;
-					bgfx::allocTransientIndexBuffer(&tib, indices_count);
-					bx::memCopy(tib.data, indices.data(), indices_count * sizeof(uint16_t));
-					bgfx::setIndexBuffer(&tib);
-				}
+				const auto indices_count = static_cast<uint32_t>(inds.size());
+				bgfx::TransientIndexBuffer tib;
+				bgfx::allocTransientIndexBuffer(&tib, indices_count);
+				std::memcpy(tib.data, inds.data(), indices_count * sizeof(uint16_t));
+				bgfx::setIndexBuffer(&tib);
 			}
-			return true;
 		}
-		return false;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	void cdebug_drawer::flush()
 	{
-		if (submit_buffers())
-		{
-			const auto& s = state();
+		CPU_ZONE;
 
-			bgfx::setViewFrameBuffer(s.m_view, s.m_fbh);
-			bgfx::setViewClear(s.m_view, s.m_clear_flags, s.m_clear_color);
-			bgfx::setViewRect(s.m_view, s.m_view_x, s.m_view_y, s.m_view_w, s.m_view_h);
-			bgfx::setViewTransform(s.m_view, C_MAT4_ID.value, C_MAT4_ID.value);
+		//- Set geometry and indices for drawing call
+		submit_buffers();
 
-			set_state();
+		//- Set the render state for drawing call
+		const auto& s = state();
 
-			bgfx::setTransform(C_MAT4_ID.value);
+		bgfx::setViewFrameBuffer(s.m_view, s.m_fbh);
+		bgfx::setViewClear(s.m_view, s.m_clear_flags, s.m_clear_color);
+		bgfx::setViewRect(s.m_view, s.m_view_x, s.m_view_y, s.m_view_w, s.m_view_h);
+		bgfx::setViewTransform(s.m_view, C_MAT4_ID.value, C_MAT4_ID.value);
 
-			const auto* effect = instance().service<ceffect_resource_manager_service>().get(state().m_effect);
-			bgfx::submit(state().m_view, effect->m_program);
-		}
+		set_state(s.m_state);
 
-		vertex_clear();
-		indices_vector().clear();
-	}
+		bgfx::setTransform(C_MAT4_ID.value);
 
-	//------------------------------------------------------------------------------------------------------------------------
-	void cdebug_drawer::push_index(uint16_t i)
-	{
-		switch (m_current_type)
-		{
-		default:
-		case type_primitives:
-			m_shape_data.m_indices.push_back(i);
-			break;
-		case type_sprite:
-			m_sprite_data.m_indices.push_back(i);
-			break;
-		case type_text:
-			m_text_data.m_indices.push_back(i);
-			break;
-		}
+		const auto* effect = instance().service<ceffect_resource_manager_service>().get(s.m_effect);
+		bgfx::submit(s.m_view, effect->m_program);
+
+		//- Reset the geometry
+		vertices().clear();
+		indices().clear();
 	}
 
 } //- kokoro

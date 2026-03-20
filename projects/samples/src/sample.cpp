@@ -32,8 +32,7 @@ void cgame::update(float dt)
 	const auto& rs = kokoro::instance().service<kokoro::crender_service>();
 	const auto& ws = kokoro::instance().service<kokoro::cwindow_service>();
 
-	m_dd.render_type(kokoro::cdebug_drawer::type_primitives)
-		.begin(kokoro::C_GEOMETRY_PASS_ID, rs.geometry_framebuffer(),
+	m_dd.begin(kokoro::C_GEOMETRY_PASS_ID, rs.geometry_framebuffer(),
 			BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x882211ff)
 		.view_rect(0, 0, ws.window_size().first, ws.window_size().second)
 		.cull(kokoro::cdebug_drawer::culling_mode_ccw)
@@ -87,11 +86,13 @@ void cgame::update(float dt)
 		kokoro::math::vec3_t v4 = { 1.5f, -1.25f, 0.0f };
 		kokoro::math::vec3_t v5 = { -1.5f, -0.75f, 0.0f };
 
-		m_dd.triangle(
+		m_dd.wireframe(false)
+			.triangle(
 				mtx * v0,
 				mtx * v1,
 				mtx * v2,
 				0xff22aaee)
+			.wireframe(true)
 			.triangle(
 				mtx * v3,
 				mtx * v4,

@@ -7,30 +7,17 @@
 
 namespace kokoro
 {
-	constexpr uint64_t C_MATERIAL_STATE_DEFAULT = 0
-		| BGFX_STATE_WRITE_RGB
-		| BGFX_STATE_WRITE_A
-		| BGFX_STATE_WRITE_Z
-		| BGFX_STATE_DEPTH_TEST_LESS
-		| BGFX_STATE_CULL_CCW
-		| BGFX_STATE_MSAA
-		;
-
 	//------------------------------------------------------------------------------------------------------------------------
 	class cdebug_drawer final
 	{
 	public:
-		//- The type basically specifies what we will be drawing, and anticipate which
-		//- vertex definition is ought to be used. Moreover this divides the render states
-		//- for each separate render type
-		enum type : uint8_t
-		{
-			type_primitives = 0,		//- Default, shapes and basic primitives
-			type_sprite,				//- Used for drawing textures
-			type_text,					//- Used for drawing text
-
-			type_count,
-		};
+		inline static constexpr uint64_t C_STATE_DEFAULT = 0
+			| BGFX_STATE_WRITE_RGB
+			| BGFX_STATE_WRITE_A
+			| BGFX_STATE_WRITE_Z
+			| BGFX_STATE_DEPTH_TEST_LESS
+			| BGFX_STATE_CULL_CCW
+			| BGFX_STATE_MSAA;
 
 		enum blending_mode : uint8_t
 		{
@@ -69,47 +56,50 @@ namespace kokoro
 			render_effect_none = 0,
 		};
 
-		cdebug_drawer() = default;
+		cdebug_drawer();
 		~cdebug_drawer() = default;
 
-		bool					init();
-		void					shutdown();
+		bool						init();
+		void						shutdown();
 
-		cdebug_drawer&			begin(bgfx::ViewId view,															//- Prepare for drawing of a new frame
-									bgfx::FrameBufferHandle fbh,
-									uint16_t flags = 0,
-									uint32_t color = 0,
-									float depth = 1.0f,
-									uint8_t stencil = 0);
-		void					frame();																			//- Submit everything we gathered for all render types
+		cdebug_drawer&				begin(bgfx::ViewId view,															//- Prepare for drawing of a new frame
+										bgfx::FrameBufferHandle fbh,
+										uint16_t flags = 0,
+										uint32_t color = 0,
+										float depth = 1.0f,
+										uint8_t stencil = 0);
+		void						frame();																			//- Submit everything we gathered for all render types
 
-		cdebug_drawer&			view_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);							//- Set view region. Primitives outside will be clipped
-		cdebug_drawer&			render_type(type value);															//- Set the current render type we want to be working on, note that this does not enforce a flush
-		cdebug_drawer&			depth_test(depth_test_mode mode);													//- Set the depth test mode to be used for rendering state
-		cdebug_drawer&			cull(culling_mode mode);															//- Set the culling mode to be used for rendering state
-		cdebug_drawer&			blend(blending_mode mode);															//- Set the blending mode to be used for rendering state
-		cdebug_drawer&			effect(render_effect value);														//- Set the effect to be used for rendering, as fallback a default effect is used
-		cdebug_drawer&			submit() { flush(); return *this; }													//- Submit what we gathered so far for current render type
-		cdebug_drawer&			color(uint32_t value);																//- Color that will be set for each submitted vertex
-		cdebug_drawer&			wireframe(const bool value);														//- Whether to fill the object with color or interpret as lines
+		cdebug_drawer&				view_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h);							//- Set view region. Primitives outside will be clipped
+		cdebug_drawer&				depth_test(depth_test_mode mode);													//- Set the depth test mode to be used for rendering state
+		cdebug_drawer&				cull(culling_mode mode);															//- Set the culling mode to be used for rendering state
+		cdebug_drawer&				blend(blending_mode mode);															//- Set the blending mode to be used for rendering state
+		cdebug_drawer&				effect(render_effect value);														//- Set the effect to be used for rendering, as fallback a default effect is used
+		cdebug_drawer&				submit() { flush(); return *this; }													//- Submit what we gathered so far for current render type
+		cdebug_drawer&				color(uint32_t value);																//- Color that will be set for each submitted vertex
+		cdebug_drawer&				wireframe(const bool value);														//- Whether to fill the object with color or interpret as lines
 
-		cdebug_drawer&			transform(const math::mat4_t& mtx);													//- Matrix used for transforming each submitted vertex
-		cdebug_drawer&			translate(const math::vec3_t& value);												//- Set translation for transformation matrix
-		cdebug_drawer&			scale(const math::vec3_t& value);													//- Set scale for transformation matrix
-		cdebug_drawer&			rotate(const math::vec3_t& value);													//- Set rotation for transformation matrix
+		cdebug_drawer&				transform(const math::mat4_t& mtx);													//- Matrix used for transforming each submitted vertex
+		cdebug_drawer&				translate(const math::vec3_t& value);												//- Set translation for transformation matrix
+		cdebug_drawer&				scale(const math::vec3_t& value);													//- Set scale for transformation matrix
+		cdebug_drawer&				rotate(const math::vec3_t& value);													//- Set rotation for transformation matrix
 
-		cdebug_drawer&			triangle(const math::vec3_t& v0, const math::vec3_t& v1,							//- Submit a single triangle
+		//- TODO:
+		//- Our base functions should be to submit many triangles, many lines and many quads and not single ones,
+		//- and the single variants should basically submit a vector of 1.
+
+		cdebug_drawer&				triangle(const math::vec3_t& v0, const math::vec3_t& v1,							//- Submit a single triangle
 										const math::vec3_t& v2, uint32_t color = 0);
-		cdebug_drawer&			quad(const math::vec3_t& v0, const math::vec3_t& v1,								//- Submit a single quad
+		cdebug_drawer&				quad(const math::vec3_t& v0, const math::vec3_t& v1,								//- Submit a single quad
 									const math::vec3_t& v2, const math::vec3_t& v3, uint32_t color = 0);
 
-		cdebug_drawer&			line(const math::vec3_t& v0, const math::vec3_t& v1, uint32_t color = 0);			//- Submit a single line
+		cdebug_drawer&				line(const math::vec3_t& v0, const math::vec3_t& v1, uint32_t color = 0);			//- Submit a single line
 
 	private:
 		struct srender_state
 		{
 			math::mat4_t m_matrix				= math::mat4_t(1.0f);
-			uint64_t m_state					= C_MATERIAL_STATE_DEFAULT;
+			uint64_t m_state					= C_STATE_DEFAULT;
 			uint32_t m_color					= 0xffffffff;
 			bgfx::FrameBufferHandle m_fbh		= BGFX_INVALID_HANDLE;
 			bgfx::ViewId m_view					= std::numeric_limits<bgfx::ViewId>::max();
@@ -125,62 +115,21 @@ namespace kokoro
 			bool m_wireframe					= false;
 		};
 
-		struct sshape_data
-		{
-			srender_state m_state;
-			std::vector<spos_color_vertex> m_vertices;
-			std::vector<uint16_t> m_indices;
-		};
-
-		struct ssprite_data
-		{
-			srender_state m_state;
-			std::vector<spos_color_uv_vertex> m_vertices;
-			std::vector<uint16_t> m_indices;
-		};
-
-		struct stext_data
-		{
-			srender_state m_state;
-			std::vector<spos_color_uv_vertex> m_vertices;
-			std::vector<uint16_t> m_indices;
-		};
-
-		type m_current_type = type_primitives;
-		sshape_data m_shape_data;
-		ssprite_data m_sprite_data;
-		stext_data m_text_data;
+		srender_state m_state;
+		std::vector<spos_color_uv_vertex> m_vertices;
+		std::vector<uint16_t> m_indices;
 
 	private:
-		//- Retrieve the current relevant state for our current drawing type
 		srender_state&				state();
-		void						set_state(uint64_t new_state = 0);
-		auto						indices_vector() -> std::vector<uint16_t>&;
-		void						vertex_clear();
+		void						set_state(uint64_t value);
+		auto						indices() -> std::vector<uint16_t>&;
+		auto						vertices() -> std::vector<spos_color_uv_vertex>&;
 		void*						vertex_data() const;
 		uint32_t					vertex_count() const;
 		const bgfx::VertexLayout&	vertex_layout() const;
 		bgfx::VertexLayoutHandle	vertex_handle() const;
-		bool						submit_buffers();
+		void						submit_buffers();
 		void						flush();
-		void						push_index(uint16_t i);
-		template<typename... ARGS>
-		void						push_vertex(ARGS... args)
-		{
-			switch (m_current_type)
-			{
-			default:
-			case type_primitives:
-				m_shape_data.m_vertices.push_back({ std::forward<ARGS>(args)... });
-				break;
-			case type_sprite:
-				m_sprite_data.m_vertices.push_back({ std::forward<ARGS>(args)... });
-				break;
-			case type_text:
-				m_text_data.m_vertices.push_back({ std::forward<ARGS>(args)... });
-				break;
-			}
-		}
 	};
 
 } //- kokoro
