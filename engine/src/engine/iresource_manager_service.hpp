@@ -64,7 +64,7 @@ namespace kokoro
 	{
 		core::cscoped_mutex m(m_instances_mutex);
 
-		if (handle > m_instances.size())
+		if (handle >= m_instances.size())
 		{
 			return nullptr;
 		}
@@ -77,7 +77,7 @@ namespace kokoro
 	{
 		core::cscoped_mutex m(m_instances_mutex);
 
-		if (handle > m_instances.size())
+		if (handle >= m_instances.size())
 		{
 			return nullptr;
 		}
@@ -88,32 +88,38 @@ namespace kokoro
 	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
 	void iresource_manager_service<TResource, TSnapshot, C_UNIQUE_INSTANCES>::destroy(resource_handle_t handle)
 	{
-		if (auto* inst = get(handle); inst)
+		core::cscoped_mutex m(m_instances_mutex);
+
+		if (handle >= m_instances.size())
 		{
-			core::cscoped_mutex m(m_instances_mutex);
-
-			do_destroy(inst);
-
-			auto* ptr = reinterpret_cast<sinstance*>(inst);
-			ptr->m_path.clear();
-			ptr->m_snapshot = nullptr;
-			(*inst) = std::move(TResource{});
-			m_free_handles.push(handle);
+			return;
 		}
+
+		auto* inst = reinterpret_cast<TResource*>(&m_instances[handle]);
+
+		do_destroy(inst);
+
+		auto* ptr = reinterpret_cast<sinstance*>(inst);
+		ptr->m_path.clear();
+		ptr->m_snapshot = nullptr;
+		(*inst) = std::move(TResource{});
+		m_free_handles.push(handle);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
 	filepath_t iresource_manager_service<TResource, TSnapshot, C_UNIQUE_INSTANCES>::filepath(resource_handle_t handle) const
 	{
-		if (const auto* inst = find(handle); inst)
-		{
-			core::cscoped_mutex m(m_instances_mutex);
+		core::cscoped_mutex m(m_instances_mutex);
 
-			const auto* ptr = reinterpret_cast<const sinstance*>(inst);
-			return ptr->m_path;
+		if (handle >= m_instances.size())
+		{
+			return {};
 		}
-		return {};
+
+		const auto* inst = reinterpret_cast<const TResource*>(&m_instances[handle]);
+		const auto* ptr = reinterpret_cast<const sinstance*>(inst);
+		return ptr->m_path;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
