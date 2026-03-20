@@ -14,7 +14,7 @@ namespace kokoro
 	using resource_handle_t = uint64_t;
 #define invalid_handle_t std::numeric_limits<resource_handle_t>::max()
 
-	static bool is_valid(resource_handle_t handle) { return handle != invalid_handle_t; }
+	inline bool is_valid(resource_handle_t handle) { return handle != invalid_handle_t; }
 
 	//- Responsible for loading snapshots of certain resource types and instantiating them, i.e. creating a runtime object.
 	//- API access provided through filepath of the desired resource, depending on the configuration either a unique instance
@@ -47,6 +47,7 @@ namespace kokoro
 		mutable core::cmutex m_snapshot_mutex;
 		mutable core::cmutex m_instances_mutex;
 		std::unordered_map<hashed_path_t, TSnapshot> m_snapshots;
+		std::unordered_map<hashed_path_t, resource_handle_t> m_paths_to_handles;
 		std::vector<sinstance> m_instances;
 		std::queue<resource_handle_t> m_free_handles;
 
@@ -100,6 +101,7 @@ namespace kokoro
 		do_destroy(inst);
 
 		auto* ptr = reinterpret_cast<sinstance*>(inst);
+		m_paths_to_handles.erase(hash(ptr->m_path));
 		ptr->m_path.clear();
 		ptr->m_snapshot = nullptr;
 		(*inst) = std::move(TResource{});
@@ -128,27 +130,20 @@ namespace kokoro
 	{
 		resource_handle_t output = invalid_handle_t;
 
+		core::cscoped_mutex m(m_instances_mutex);
+
 		//- If we have non-unique instances, meaning there is only one instance or none,
 		//- then we try to resolve and return it if it exists before creating a new one
 		if constexpr (!C_UNIQUE_INSTANCES)
 		{
-			core::cscoped_mutex m(m_instances_mutex);
-
-			for (auto i = 0; i < m_instances.size(); ++i)
+			if (const auto it = m_paths_to_handles.find(hash(path)); it != m_paths_to_handles.end())
 			{
-				const auto& inst = m_instances[i];
-
-				if (inst.m_path == path)
-				{
-					return static_cast<resource_handle_t>(i);
-				}
+				return it->second;
 			}
 		}
 
 		//- Instantiate the resource
 		const auto* snaps = snapshot(path);
-
-		core::cscoped_mutex m(m_instances_mutex);
 
 		//- Either reuse free indices or emplace a new entry
 		if (!m_free_handles.empty())
@@ -180,6 +175,8 @@ namespace kokoro
 			inst.m_snapshot = snaps;
 			output = static_cast<resource_handle_t>(m_instances.size() - 1);
 		}
+
+		m_paths_to_handles[hash(path)] = output;
 
 		return output;
 	}
