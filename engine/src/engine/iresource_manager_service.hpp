@@ -2,6 +2,7 @@
 #include <engine/iservice.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <engine/services/log_service.hpp>
+#include <engine/services/thread_service.hpp>
 #include <core/io.hpp>
 #include <core/hash.hpp>
 #include <core/mutex.hpp>
@@ -40,6 +41,7 @@ namespace kokoro
 		filepath_t				filepath(resource_handle_t handle) const;	//- Retrieve the filepath of the snapshot from which the instance was created
 		TResource*				get(resource_handle_t handle);
 		const TResource*		find(resource_handle_t handle) const;
+		bool					ready(resource_handle_t handle) const;
 
 	protected:
 		using hashed_path_t = uint64_t;
@@ -50,6 +52,7 @@ namespace kokoro
 		std::unordered_map<hashed_path_t, resource_handle_t> m_paths_to_handles;
 		std::vector<sinstance> m_instances;
 		std::queue<resource_handle_t> m_free_handles;
+		mutable std::unordered_map<resource_handle_t, std::future<void>> m_tasks;
 
 	protected:
 		virtual TResource		do_instantiate(const TSnapshot*) = 0;
@@ -57,7 +60,105 @@ namespace kokoro
 
 	private:
 		uint64_t				hash(filepath_t path) { return core::hash(path.generic_string()); }
+		resource_handle_t		acquire_handle_and_instance_slot(filepath_t path);
 	};
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
+	bool iresource_manager_service<TResource, TSnapshot, C_UNIQUE_INSTANCES>::ready(resource_handle_t handle) const
+	{
+		core::cscoped_mutex m(m_instances_mutex);
+
+		if (const auto it = m_tasks.find(handle); it != m_tasks.end())
+		{
+			if (it->second.wait_for(std::chrono::nanoseconds(0)) == std::future_status::ready)
+			{
+				//- The resource is done loading and ready for use
+				m_tasks.erase(it);
+			}
+			else
+			{
+				return false;
+			}
+		}
+		//- If no task present, we assume that it was finished and thuhs is done
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
+	resource_handle_t iresource_manager_service<TResource, TSnapshot, C_UNIQUE_INSTANCES>::acquire_handle_and_instance_slot(filepath_t path)
+	{
+		resource_handle_t output = invalid_handle_t;
+
+		//- Either reuse free indices or emplace a new entry
+		if (!m_free_handles.empty())
+		{
+			const auto free_idx = m_free_handles.back();
+			m_free_handles.pop();
+
+			//- If the index is higher than current instances count, then we just emplace a new one
+			//- and ignore the free handle
+			if (free_idx < m_instances.size())
+			{
+				output = static_cast<resource_handle_t>(free_idx);
+			}
+			else
+			{
+				output = static_cast<resource_handle_t>(m_instances.size());
+				m_instances.emplace_back(TResource{});
+			}
+		}
+		else
+		{
+			output = static_cast<resource_handle_t>(m_instances.size());
+			m_instances.emplace_back(TResource{});
+		}
+
+		return output;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
+	resource_handle_t iresource_manager_service<TResource, TSnapshot, C_UNIQUE_INSTANCES>::instantiate(filepath_t path)
+	{
+		resource_handle_t output = invalid_handle_t;
+		const auto hashed_path = hash(path);
+
+		core::cscoped_mutex m(m_instances_mutex);
+
+		//- If we have non-unique instances, meaning there is only one instance or none,
+		//- then we try to resolve and return it if it exists before creating a new one
+		if constexpr (!C_UNIQUE_INSTANCES)
+		{
+			if (const auto it = m_paths_to_handles.find(hashed_path); it != m_paths_to_handles.end())
+			{
+				return it->second;
+			}
+		}
+
+		//- Get the handle we will be using for the resource, this will be returned regardless and can be used as soon as the
+		//- resource is loaded and instantiated fully
+		output = acquire_handle_and_instance_slot(path);
+
+		//- Enqueue a task to load snapshot and instantiate the resource, aftewards it will be stored internally
+		auto future = instance().service<cthread_service>().async(fmt::format("instantiate '{}'", path.generic_u8string()),
+			[this, output, path]()
+			{
+				const auto* snaps = snapshot(path);
+				auto resource = do_instantiate(snaps);
+
+				core::cscoped_mutex m(m_instances_mutex);
+
+				m_instances[output] = std::move(resource);
+				m_instances[output].m_path = path;
+				m_instances[output].m_snapshot = snaps;
+			});
+
+		m_paths_to_handles[hashed_path] = output;
+		m_tasks[output] = std::move(future);
+		return output;
+	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
@@ -91,9 +192,16 @@ namespace kokoro
 	{
 		core::cscoped_mutex m(m_instances_mutex);
 
+		//- Invalid handle does not point to a valid resource
 		if (handle >= m_instances.size())
 		{
 			return;
+		}
+
+		//- Check if the resource is waiting to be loaded, and if so remove that task from schedule
+		if (const auto it = m_tasks.find(handle); it != m_tasks.end())
+		{
+			m_tasks.erase(it);
 		}
 
 		auto* inst = reinterpret_cast<TResource*>(&m_instances[handle]);
@@ -122,63 +230,6 @@ namespace kokoro
 		const auto* inst = reinterpret_cast<const TResource*>(&m_instances[handle]);
 		const auto* ptr = reinterpret_cast<const sinstance*>(inst);
 		return ptr->m_path;
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
-	resource_handle_t iresource_manager_service<TResource, TSnapshot, C_UNIQUE_INSTANCES>::instantiate(filepath_t path)
-	{
-		resource_handle_t output = invalid_handle_t;
-
-		core::cscoped_mutex m(m_instances_mutex);
-
-		//- If we have non-unique instances, meaning there is only one instance or none,
-		//- then we try to resolve and return it if it exists before creating a new one
-		if constexpr (!C_UNIQUE_INSTANCES)
-		{
-			if (const auto it = m_paths_to_handles.find(hash(path)); it != m_paths_to_handles.end())
-			{
-				return it->second;
-			}
-		}
-
-		//- Instantiate the resource
-		const auto* snaps = snapshot(path);
-
-		//- Either reuse free indices or emplace a new entry
-		if (!m_free_handles.empty())
-		{
-			auto idx = m_free_handles.back();
-			m_free_handles.pop();
-
-			//- If the index is higher than current instances count, then we just emplace a new one
-			//- and ignore the free handle
-			if (idx < m_instances.size())
-			{
-				m_instances[idx] = std::move(do_instantiate(snaps));
-				m_instances[idx].m_path = path;
-				m_instances[idx].m_snapshot = snaps;
-				output = static_cast<resource_handle_t>(idx);
-			}
-			else
-			{
-				auto& inst = m_instances.emplace_back(std::move(do_instantiate(snaps)));
-				inst.m_path = path;
-				inst.m_snapshot = snaps;
-				output = static_cast<resource_handle_t>(m_instances.size() - 1);
-			}
-		}
-		else
-		{
-			auto& inst = m_instances.emplace_back(std::move(do_instantiate(snaps)));
-			inst.m_path = path;
-			inst.m_snapshot = snaps;
-			output = static_cast<resource_handle_t>(m_instances.size() - 1);
-		}
-
-		m_paths_to_handles[hash(path)] = output;
-
-		return output;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

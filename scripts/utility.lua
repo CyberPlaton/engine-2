@@ -93,6 +93,7 @@ function set_basic_defines()
 			"__STDC_FORMAT_MACROS",
 			"_CRT_SECURE_NO_DEPRECATE",
 			"RTTR_DLL",						-- RTTR
+			"USE_MALLOC_LOCK",				-- DLMALLOC concurrency safety
 			}
 
 	if IS_WARNING_AND_ERRORS_ENABLED == false then
