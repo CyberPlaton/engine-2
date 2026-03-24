@@ -1,6 +1,7 @@
 #pragma once
 #include <engine/iservice.hpp>
 #include <core/memory.hpp>
+#include <core/mutex.hpp>
 #include <cstdint>
 #include <unordered_map>
 #include <filesystem>
@@ -24,7 +25,7 @@ namespace kokoro
 	};
 
 	//------------------------------------------------------------------------------------------------------------------------
-	class cfile final
+	class cfile final : public std::enable_shared_from_this<cfile>
 	{
 	public:
 		enum seek_origin : uint8_t
@@ -70,6 +71,29 @@ namespace kokoro
 		int m_mode				= 0;
 	};
 
+	//- Class responsible for extending the lifetime of a file object within its scope, not meant to be stored and only
+	//- used inside a function that uses file I/O operations.
+	//------------------------------------------------------------------------------------------------------------------------
+	class cfile_wrapper final
+	{
+	public:
+		explicit cfile_wrapper(const std::shared_ptr<cfile>& file);
+		cfile_wrapper() = default;
+		~cfile_wrapper() = default;
+		cfile_wrapper& operator=(const cfile_wrapper&) = delete;
+		cfile_wrapper(const cfile_wrapper&) = delete;
+		cfile_wrapper(cfile_wrapper&&) = delete;
+		cfile_wrapper& operator=(const cfile_wrapper&&) = delete;
+
+		inline bool				valid() const { return m_file != nullptr; }
+		operator				bool() const { return valid(); }
+		inline cfile&			get() { return *m_file.get(); }
+		inline const cfile&		get() const { return *m_file.get(); }
+
+	private:
+		std::shared_ptr<cfile> m_file = nullptr;
+	};
+
 	//------------------------------------------------------------------------------------------------------------------------
 	class cvirtual_filesystem_service final : public iservice
 	{
@@ -85,12 +109,13 @@ namespace kokoro
 		bool		exists(const filepath_t& filepath) const;
 		auto		resolve(const filepath_t& filepath) const -> std::pair<bool, filepath_t>;
 		auto		assign(std::string_view alias, std::string_view basepath) -> cvirtual_filesystem_service&;
-		cfile*		open(const filepath_t& filepath, int file_mode);
+		auto		open(const filepath_t& filepath, int file_mode) -> cfile_wrapper;
 		std::string	basepath(std::string_view alias) const;
 
 	private:
 		std::unordered_map<std::string, std::string> m_aliases;
-		std::unordered_map<std::string, cfile> m_files;
+		std::unordered_map<std::string, std::shared_ptr<cfile>> m_files;
+		mutable core::cmutex m_mutex;
 	};
 
 } //- kokoro

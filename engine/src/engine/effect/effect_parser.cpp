@@ -28,21 +28,16 @@ namespace kokoro
 				}
 			}
 
-			if (auto file = vfs.open(path, file_options_read | file_options_text); file)
+			if (auto wrapper = vfs.open(path, file_options_read | file_options_text); wrapper)
 			{
-				auto future = file->read_async();
-
-				while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
-				file->close();
-
-				auto mem = future.get();
+				auto& file = wrapper.get();
+				auto mem = file.read_sync();
 
 				if (mem && !mem->empty())
 				{
 					return std::string(mem->data(), mem->size());
 				}
 			}
-
 			return {};
 		}
 

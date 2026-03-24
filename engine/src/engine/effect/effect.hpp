@@ -4,21 +4,10 @@
 #include <string>
 #include <vector>
 #include <core/memory.hpp>
-#include <engine/iresource_manager_service.hpp>
+#include <engine/services/resource_manager_service.hpp>
 
 namespace kokoro
 {
-	//------------------------------------------------------------------------------------------------------------------------
-	struct suniform final
-	{
-		using type = bgfx::UniformType::Enum;
-
-		std::string m_name;
-		rttr::variant m_data;
-		type m_type = type::Count;
-		bgfx::UniformHandle m_handle = BGFX_INVALID_HANDLE;
-	};
-
 	//- Serializable representation of an effect.
 	//------------------------------------------------------------------------------------------------------------------------
 	struct seffect_snapshot final
@@ -38,12 +27,14 @@ namespace kokoro
 
 		ssnapshot_shader m_vs;
 		ssnapshot_shader m_ps;
-		std::vector<suniform> m_uniforms;
 	};
 
 	//------------------------------------------------------------------------------------------------------------------------
 	struct seffect
 	{
+		static std::pair<bool, seffect>	load(const rttr::variant& snapshot);
+		static void						unload(seffect& effect);
+
 		struct sshader
 		{
 			core::memory_ref_t m_data = nullptr;
@@ -52,25 +43,7 @@ namespace kokoro
 
 		sshader m_vs;
 		sshader m_ps;
-		std::vector<suniform> m_uniforms;
 		bgfx::ProgramHandle m_program = BGFX_INVALID_HANDLE;
 	};
-
-	//------------------------------------------------------------------------------------------------------------------------
-	class ceffect_resource_manager_service final : public iresource_manager_service<seffect, seffect_snapshot>
-	{
-	public:
-		ceffect_resource_manager_service() = default;
-		~ceffect_resource_manager_service() = default;
-
-		bool			init() override final;
-
-	protected:
-		seffect			do_instantiate(const seffect_snapshot* snaps) override final;
-		void			do_destroy(seffect* inst) override final;
-	};
-
-	suniform			create_uniform(const char* name, suniform::type type);
-	void				update_uniform(suniform& uniform, rttr::variant&& data);
 
 } //- kokoro

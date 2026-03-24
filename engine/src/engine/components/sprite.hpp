@@ -19,8 +19,8 @@ namespace kokoro::world::component
 		math::vec4_t m_source = { 0.0f, 0.0f, 1.0f, 1.0f };
 		math::vec2_t m_uv0;
 		math::vec2_t m_uv1;
-		resource_handle_t m_mesh = invalid_handle_t;
-		resource_handle_t m_material = invalid_handle_t;
+		cview<smesh> m_mesh;
+		cview<smaterial> m_material;
 		uint32_t m_tint = 0;
 
 		RTTR_ENABLE(kokoro::ecs::icomponent);

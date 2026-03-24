@@ -27,8 +27,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	bool cdebug_drawer::init()
 	{
-		auto& erm = instance().service<ceffect_resource_manager_service>();
-		m_state.m_effect = erm.instantiate(C_EFFECTS[0]);
+		auto& rms = instance().service<cresource_manager_service>();
+		m_state.m_effect = rms.load<seffect>(C_EFFECTS[0]);
 
 		//- Setup for render types
 		return true;
@@ -37,8 +37,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void cdebug_drawer::shutdown()
 	{
-		auto& erm = instance().service<ceffect_resource_manager_service>();
-		erm.destroy(m_state.m_effect);
+		auto& rms = instance().service<cresource_manager_service>();
+		rms.unload<seffect>(m_state.m_effect.path());
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -186,8 +186,8 @@ namespace kokoro
 		const auto i = static_cast<uint64_t>(value);
 		if (i < C_EFFECTS.size())
 		{
-			auto& erm = instance().service<ceffect_resource_manager_service>();
-			state().m_effect = erm.instantiate(C_EFFECTS[i]);
+			auto& rms = instance().service<cresource_manager_service>();
+			state().m_effect = rms.load<seffect>(C_EFFECTS[i]);
 		}
 		return *this;
 	}
@@ -405,7 +405,7 @@ namespace kokoro
 		submit_buffers();
 
 		//- Set the render state for drawing call
-		const auto& s = state();
+		auto& s = state();
 
 		bgfx::setViewFrameBuffer(s.m_view, s.m_fbh);
 		bgfx::setViewClear(s.m_view, s.m_clear_flags, s.m_clear_color);
@@ -416,8 +416,7 @@ namespace kokoro
 
 		bgfx::setTransform(C_MAT4_ID.value);
 
-		const auto* effect = instance().service<ceffect_resource_manager_service>().get(s.m_effect);
-		bgfx::submit(s.m_view, effect->m_program);
+		bgfx::submit(s.m_view, s.m_effect.get().m_program);
 
 		//- Reset the geometry
 		vertices().clear();

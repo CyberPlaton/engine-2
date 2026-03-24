@@ -3,6 +3,7 @@
 #include <engine/services/window_service.hpp>
 #include <engine/effect/effect_parser.hpp>
 #include <engine/effect/effect.hpp>
+#include <engine/material/material.hpp>
 #include <engine/effect/embedded_shaders.hpp>
 #include <engine/effect/shader.hpp>
 #include <engine/render/vertices.hpp>
@@ -52,17 +53,10 @@ namespace kokoro
 			static const filepath_t C_APPLY0_EFFECT_FILEPATH = "engine/effects/apply_back0.effect";
 			static const filepath_t C_APPLY1_EFFECT_FILEPATH = "engine/effects/apply_back1.effect";
 
-			auto& erm = instance().service<ceffect_resource_manager_service>();
-			m_merge_program = erm.instantiate(C_MERGE_EFFECT_FILEPATH);
-			m_apply_back0_program = erm.instantiate(C_APPLY0_EFFECT_FILEPATH);
-			m_apply_back1_program = erm.instantiate(C_APPLY1_EFFECT_FILEPATH);
-
-			if (!is_valid(m_merge_program) ||
-				!is_valid(m_apply_back0_program)||
-				!is_valid(m_apply_back1_program))
-			{
-				return false;
-			}
+			auto& rms = instance().service<cresource_manager_service>();
+			m_merge_program = rms.load<seffect>(C_MERGE_EFFECT_FILEPATH);
+			m_apply_back0_program = rms.load<seffect>(C_APPLY0_EFFECT_FILEPATH);
+			m_apply_back1_program = rms.load<seffect>(C_APPLY1_EFFECT_FILEPATH);
 		}
 
 		//- Create default render target with color and depth
@@ -105,10 +99,10 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void crender_service::shutdown()
 	{
-		auto& erm = instance().service<ceffect_resource_manager_service>();
-		erm.destroy(m_merge_program);
-		erm.destroy(m_apply_back0_program);
-		erm.destroy(m_apply_back1_program);
+		auto& rms = instance().service<cresource_manager_service>();
+		rms.unload<seffect>(m_merge_program.path());
+		rms.unload<seffect>(m_apply_back0_program.path());
+		rms.unload<seffect>(m_apply_back1_program.path());
 		bgfx::destroy(m_geometry_framebuffer);
 		bgfx::destroy(m_texture_chain_uniform);
 		bgfx::shutdown();
@@ -144,8 +138,6 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void crender_service::end_frame()
 	{
-		auto& erm = instance().service<ceffect_resource_manager_service>();
-
 		bgfx::setViewFrameBuffer(C_BACKBUFFER_PASS_ID, BGFX_INVALID_HANDLE);
 		bgfx::setViewClear(C_BACKBUFFER_PASS_ID, BGFX_CLEAR_COLOR, 0x000055FF);
 		bgfx::setViewTransform(C_BACKBUFFER_PASS_ID, C_MAT4_ID.value, C_MAT4_ID.value);
@@ -163,7 +155,7 @@ namespace kokoro
 
 		submit_screen_quad();
 
-		bgfx::submit(C_BACKBUFFER_PASS_ID, erm.get(m_merge_program)->m_program);
+		bgfx::submit(C_BACKBUFFER_PASS_ID, m_merge_program.get().m_program);
 
 		//- End ImGui if required
 

@@ -1,10 +1,21 @@
 #pragma once
 #include <engine/effect/effect.hpp>
 #include <engine/render/texture.hpp>
-#include <engine/iresource_manager_service.hpp>
+#include <engine/services/resource_manager_service.hpp>
 
 namespace kokoro
 {
+	//------------------------------------------------------------------------------------------------------------------------
+	struct suniform final
+	{
+		using type = bgfx::UniformType::Enum;
+
+		std::string m_name;
+		rttr::variant m_data;
+		type m_type = type::Count;
+		bgfx::UniformHandle m_handle = BGFX_INVALID_HANDLE;
+	};
+
 	//------------------------------------------------------------------------------------------------------------------------
 	struct smaterial_snapshot final
 	{
@@ -16,6 +27,7 @@ namespace kokoro
 		};
 
 		std::vector<ssampler_texture> m_sampler_textures;
+		std::vector<suniform> m_uniforms;
 		std::string m_effect;
 		uint64_t m_blending = 0;
 		uint64_t m_state = 0;
@@ -37,31 +49,24 @@ namespace kokoro
 			| BGFX_STATE_BLEND_NORMAL
 			;
 
+		static std::pair<bool, smaterial>	load(const rttr::variant& snapshot);
+		static void							unload(smaterial& material);
+
 		struct ssampler_texture
 		{
-			resource_handle_t m_texture = invalid_handle_t;
+			cview<stexture> m_texture;
 			uint64_t m_sampler_flags = 0;
 			uint8_t m_sampler_stage = 0;
 		};
 
 		std::vector<ssampler_texture> m_sampler_textures;
-		resource_handle_t m_effect = invalid_handle_t;
+		std::vector<suniform> m_uniforms;
+		cview<seffect> m_effect;
 		uint64_t m_blending = C_MATERIAL_BLEND_DEFAULT;
 		uint64_t m_state = C_MATERIAL_STATE_DEFAULT;
 	};
 
-	//------------------------------------------------------------------------------------------------------------------------
-	class cmaterial_resource_manager_service final : public iresource_manager_service<smaterial, smaterial_snapshot>
-	{
-	public:
-		cmaterial_resource_manager_service() = default;
-		~cmaterial_resource_manager_service() = default;
-
-		bool			init() override final;
-
-	protected:
-		smaterial		do_instantiate(const smaterial_snapshot* snaps) override final;
-		void			do_destroy(smaterial* inst) override final;
-	};
+	suniform			create_uniform(const char* name, suniform::type type);
+	void				update_uniform(suniform& uniform, rttr::variant&& data);
 
 } //- kokoro

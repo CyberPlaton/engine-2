@@ -217,10 +217,11 @@ namespace kokoro
 				filepath_t(options.m_name).stem().generic_string());
 
 			//- Recreate the file and write shader data to it
-			if (auto file = vfs.open(temp_path, file_options_write | file_options_text | file_options_truncate); file)
+			if(auto wrapper = vfs.open(temp_path, file_options_write | file_options_text | file_options_truncate); wrapper)
 			{
-				file->write(code, static_cast<unsigned>(strlen(code)));
-				file->close();
+				auto& file = wrapper.get();
+				file.write(code, static_cast<unsigned>(strlen(code)));
+				file.close();
 
 				log.debug(fmt::format("\tsucessfully created and wrote to temporary file '{}'",
 					temp_path.generic_string()).c_str());
@@ -252,10 +253,10 @@ namespace kokoro
 		}
 
 		//- Erase the temporary file used for compilation
-		{
-			std::error_code err;
-			std::filesystem::remove_all(temp_path, err);
-		}
+// 		{
+// 			std::error_code err;
+// 			std::filesystem::remove_all(temp_path, err);
+// 		}
 
 		return memory;
 	}

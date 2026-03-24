@@ -107,7 +107,7 @@ namespace kokoro
 			uint32_t m_clear_color				= 0;
 			float m_clear_depth					= 0.0f;
 			uint8_t m_clear_stencil				= 0;
-			resource_handle_t m_effect			= invalid_handle_t;
+			cview<seffect> m_effect;
 			uint16_t m_view_x					= 0;
 			uint16_t m_view_y					= 0;
 			uint16_t m_view_w					= 0;

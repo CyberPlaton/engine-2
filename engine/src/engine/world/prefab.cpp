@@ -80,20 +80,16 @@ namespace kokoro
 				return {};
 			}
 
+			//- Note: we do not resolve the filepath using VFS  on purpose, this is the responsibility of the caller
 			//------------------------------------------------------------------------------------------------------------------------
 			core::cuuid create(sworld* w, std::string_view filepath, std::optional<sconfig> cfg /*= std::nullopt*/)
 			{
-				//- Load prefab file
 				auto& vfs = instance().service<cvirtual_filesystem_service>();
-				if (const auto file = vfs.open(filepath, file_options_read | file_options_text); file)
+
+				if (auto wrapper = vfs.open(filepath, file_options_read | file_options_text); wrapper)
 				{
-					auto future = file->read_async();
-
-					while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
-					file->close();
-
-					auto mem = future.get();
-
+					auto& file = wrapper.get();
+					auto mem = file.read_sync();
 					if (mem && !mem->empty())
 					{
 						//- Read JSON and convert to prefab data, then instantiate from that
@@ -118,7 +114,6 @@ namespace kokoro
 						}
 					}
 				}
-
 				return core::cuuid::C_INVALID_UUID;
 			}
 

@@ -8,16 +8,11 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	bool ctexture_resource_manager_service::init()
+	std::pair<bool, stexture> stexture::load(const rttr::variant& snapshot)
 	{
-		return true;
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	stexture ctexture_resource_manager_service::do_instantiate(const stexture_snapshot* snaps)
-	{
+		const auto& snaps = snapshot.get_value<stexture_snapshot>();
 		auto& vfs = instance().service<cvirtual_filesystem_service>();
-		filepath_t path(snaps->m_texture);
+		filepath_t path(snaps.m_texture);
 
 		if (!vfs.exists(path))
 		{
@@ -29,19 +24,15 @@ namespace kokoro
 			else
 			{
 				instance().service<clog_service>().err(fmt::format("Could not find texture file at '{}'",
-					snaps->m_texture).c_str());
-				return {};
+					snaps.m_texture).c_str());
+				return { false, {} };
 			}
 		}
 
-		if (auto file = vfs.open(path, file_options_read | file_options_binary); file)
+		if (auto wrapper = vfs.open(path, file_options_read | file_options_binary); wrapper)
 		{
-			auto future = file->read_async();
-
-			while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
-			file->close();
-
-			auto mem = future.get();
+			auto& file = wrapper.get();
+			auto mem = file.read_sync();
 
 			if (mem && !mem->empty())
 			{
@@ -60,20 +51,20 @@ namespace kokoro
 						texture.m_image.m_numMips > 1, texture.m_image.m_numLayers, (bgfx::TextureFormat::Enum)texture.m_image.m_format,
 						C_TEXTURE_SAMPLER_FLAGS_DEFAULT, mem); bgfx::isValid(texture.m_handle))
 					{
-						return texture;
+						return { true, texture };
 					}
 				}
 			}
 		}
-		return {};
+		return { false, {} };
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	void ctexture_resource_manager_service::do_destroy(stexture* inst)
+	void stexture::unload(stexture& texture)
 	{
-		if (bgfx::isValid(inst->m_handle))
+		if (bgfx::isValid(texture.m_handle))
 		{
-			bgfx::destroy(inst->m_handle);
+			bgfx::destroy(texture.m_handle);
 		}
 	}
 

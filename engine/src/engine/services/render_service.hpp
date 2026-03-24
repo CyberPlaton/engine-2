@@ -36,10 +36,10 @@ namespace kokoro
 		auto		geometry_framebuffer() const -> const bgfx::FrameBufferHandle { return m_geometry_framebuffer; }
 
 	private:
+		cview<seffect> m_merge_program;
+		cview<seffect> m_apply_back0_program;
+		cview<seffect> m_apply_back1_program;
 		bgfx::FrameBufferHandle m_geometry_framebuffer	= BGFX_INVALID_HANDLE;
-		resource_handle_t m_merge_program				= invalid_handle_t;
-		resource_handle_t m_apply_back0_program			= invalid_handle_t;
-		resource_handle_t m_apply_back1_program			= invalid_handle_t;
 		bgfx::UniformHandle m_texture_chain_uniform		= BGFX_INVALID_HANDLE;
 	};
 

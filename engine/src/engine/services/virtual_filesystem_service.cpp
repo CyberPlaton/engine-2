@@ -60,6 +60,12 @@ namespace kokoro
 	} //- unnamed
 
 	//------------------------------------------------------------------------------------------------------------------------
+	cfile_wrapper::cfile_wrapper(const std::shared_ptr<cfile>& file) :
+		m_file(file)
+	{
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
 	cfile::cfile(const filepath_t& filepath) :
 		m_filepath(filepath),
 		m_file(nullptr),
@@ -175,7 +181,7 @@ namespace kokoro
 		{
 			return datasize;
 		}
-		return finished_reading;
+		return static_cast<unsigned>(finished_reading);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -245,7 +251,7 @@ namespace kokoro
 		{
 			return datasize;
 		}
-		return finished_writing;
+		return static_cast<unsigned>(finished_writing);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -381,22 +387,22 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	cfile* cvirtual_filesystem_service::open(const filepath_t& filepath, int file_mode)
+	auto cvirtual_filesystem_service::open(const filepath_t& filepath, int file_mode) -> cfile_wrapper
 	{
 		const auto filepath_string = filepath.generic_string();
 
 		if (const auto it = m_files.find(filepath_string); it != m_files.end())
 		{
 			auto& file = it->second;
-			file.open(file_mode | file_options_truncate);
+			file->open(file_mode | file_options_truncate);
 
-			if (!file.opened())
+			if (!file->opened())
 			{
 				//- Failed to open file for whatever reason, no need to keep it around
 				m_files.erase(filepath_string);
-				return nullptr;
+				return {};
 			}
-			return &it->second;
+			return cfile_wrapper{ it->second };
 		}
 
 		auto path = filepath;
@@ -407,7 +413,7 @@ namespace kokoro
 			{
 				if (starts_with(filepath_string, alias))
 				{
-					path = filepath_t{ replace(filepath_string, alias, basepath)};
+					path = filepath_t{ replace(filepath_string, alias, basepath) };
 					break;
 				}
 			}
@@ -417,22 +423,22 @@ namespace kokoro
 		//- the file itself is constructed using the real path for correct opening.
 		if (auto [it, result] = m_files.emplace(std::piecewise_construct,
 			std::forward_as_tuple(filepath_string),
-			std::forward_as_tuple(path)); result)
+			std::forward_as_tuple(new cfile(path))); result)
 		{
 			auto& file = it->second;
-			file.open(file_mode | file_options_truncate);
+			file->open(file_mode | file_options_truncate);
 
-			if (!file.opened())
+			if (!file->opened())
 			{
 				//- Failed to open file for whatever reason, no need to keep it around
 				m_files.erase(filepath_string);
 			}
 			else
 			{
-				return &file;
+				return cfile_wrapper{ file };
 			}
 		}
-		return nullptr;
+		return {};
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

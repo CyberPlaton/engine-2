@@ -11,30 +11,24 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	bool cmesh_resource_manager_service::init()
-	{
-		return true;
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	smesh cmesh_resource_manager_service::do_instantiate(const smesh_snapshot* snaps)
+	std::pair<bool, smesh> smesh::load(const rttr::variant& snapshot)
 	{
 		const auto& layout = spos_color_uv_vertex::get().layout();
-
+		const auto& snaps = snapshot.get_value<smesh_snapshot>();
 		smesh mesh;
 		mesh.m_layout = layout;
 
-		const auto u_start = snaps->m_source.x;
-		const auto u_end = snaps->m_source.x + snaps->m_source.z;
-		const auto v_start = snaps->m_source.y;
-		const auto v_end = snaps->m_source.y + snaps->m_source.w;
+		const auto u_start = snaps.m_source.x;
+		const auto u_end = snaps.m_source.x + snaps.m_source.z;
+		const auto v_start = snaps.m_source.y;
+		const auto v_end = snaps.m_source.y + snaps.m_source.w;
 
 		spos_color_uv_vertex vertices[] =
 		{
-			{ snaps->m_v1.x, snaps->m_v1.y, snaps->m_v1.z, 0xffffffff, u_start, v_end },	//- Bottom-left
-			{ snaps->m_v2.x, snaps->m_v2.y, snaps->m_v2.z, 0xffffffff, u_end, v_end },		//- Bottom-right
-			{ snaps->m_v3.x, snaps->m_v3.y, snaps->m_v3.z, 0xffffffff, u_start, v_start },	//- Top-left
-			{ snaps->m_v4.x, snaps->m_v4.y, snaps->m_v4.z, 0xffffffff, u_end, v_start }		//- Top-right
+			{ snaps.m_v1.x, snaps.m_v1.y, snaps.m_v1.z, 0xffffffff, u_start, v_end },	//- Bottom-left
+			{ snaps.m_v2.x, snaps.m_v2.y, snaps.m_v2.z, 0xffffffff, u_end, v_end },		//- Bottom-right
+			{ snaps.m_v3.x, snaps.m_v3.y, snaps.m_v3.z, 0xffffffff, u_start, v_start },	//- Top-left
+			{ snaps.m_v4.x, snaps.m_v4.y, snaps.m_v4.z, 0xffffffff, u_end, v_start }		//- Top-right
 		};
 
 		uint16_t indices[] = {
@@ -76,13 +70,13 @@ namespace kokoro
 
 		group.m_primitives.push_back(prim);
 
-		return mesh;
+		return { true, mesh };
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	void cmesh_resource_manager_service::do_destroy(smesh* inst)
+	void smesh::unload(smesh& mesh)
 	{
-		for (auto& group : inst->m_groups)
+		for (auto& group : mesh.m_groups)
 		{
 			if (bgfx::isValid(group.m_vbh))
 			{

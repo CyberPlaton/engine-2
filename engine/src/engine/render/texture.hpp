@@ -2,19 +2,10 @@
 #include <bgfx.h>
 #include <bimg.h>
 #include <string>
-#include <engine/iresource_manager_service.hpp>
+#include <engine/services/resource_manager_service.hpp>
 
 namespace kokoro
 {
-	//------------------------------------------------------------------------------------------------------------------------
-	struct stexture
-	{
-		using format = bgfx::TextureFormat::Enum;
-
-		bimg::ImageContainer m_image;
-		bgfx::TextureHandle m_handle = BGFX_INVALID_HANDLE;
-	};
-
 	//------------------------------------------------------------------------------------------------------------------------
 	struct stexture_snapshot final
 	{
@@ -22,17 +13,15 @@ namespace kokoro
 	};
 
 	//------------------------------------------------------------------------------------------------------------------------
-	class ctexture_resource_manager_service final : public iresource_manager_service<stexture, stexture_snapshot, false>
+	struct stexture
 	{
-	public:
-		ctexture_resource_manager_service() = default;
-		~ctexture_resource_manager_service() = default;
+		static std::pair<bool, stexture>	load(const rttr::variant& snapshot);
+		static void							unload(stexture& texture);
 
-		bool			init() override final;
+		using format = bgfx::TextureFormat::Enum;
 
-	protected:
-		stexture		do_instantiate(const stexture_snapshot* snaps) override final;
-		void			do_destroy(stexture* inst) override final;
+		bimg::ImageContainer m_image;
+		bgfx::TextureHandle m_handle = BGFX_INVALID_HANDLE;
 	};
 
 } //- kokoro

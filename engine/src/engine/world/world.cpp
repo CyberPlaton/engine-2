@@ -1342,6 +1342,7 @@ namespace kokoro
 			return {};
 		}
 
+		//- Note: we do not resolve the filepath using VFS  on purpose, this is the responsibility of the caller
 		//------------------------------------------------------------------------------------------------------------------------
 		sworld* create(std::string_view name_or_filepath, std::optional<sconfig> cfg /*= std::nullopt*/)
 		{
@@ -1353,14 +1354,11 @@ namespace kokoro
 			}
 
 			auto& vfs = instance().service<cvirtual_filesystem_service>();
-			if (auto file = vfs.open(name_or_filepath, file_options_read | file_options_text); file)
+
+			if (auto wrapper = vfs.open(name_or_filepath, file_options_read | file_options_text); wrapper)
 			{
-				auto future = file->read_async();
-
-				while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
-				file->close();
-
-				auto mem = future.get();
+				auto& file = wrapper.get();
+				auto mem = file.read_sync();
 
 				if (mem && !mem->empty())
 				{

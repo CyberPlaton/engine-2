@@ -3,7 +3,7 @@
 #include <vector>
 #include <engine/math/vec3.hpp>
 #include <engine/math/vec4.hpp>
-#include <engine/iresource_manager_service.hpp>
+#include <engine/services/resource_manager_service.hpp>
 #include <rttr.h>
 #include <bgfx.h>
 
@@ -23,6 +23,9 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	struct smesh
 	{
+		static std::pair<bool, smesh>	load(const rttr::variant& snapshot);
+		static void						unload(smesh& mesh);
+
 		struct sgroup
 		{
 			struct sprimitive
@@ -44,20 +47,6 @@ namespace kokoro
 
 		std::vector<sgroup> m_groups;
 		bgfx::VertexLayout m_layout;
-	};
-
-	//------------------------------------------------------------------------------------------------------------------------
-	class cmesh_resource_manager_service final : public iresource_manager_service<smesh, smesh_snapshot>
-	{
-	public:
-		cmesh_resource_manager_service() = default;
-		~cmesh_resource_manager_service() = default;
-
-		bool			init() override final;
-
-	protected:
-		smesh			do_instantiate(const smesh_snapshot* snaps) override final;
-		void			do_destroy(smesh* inst) override final;
 	};
 
 } //- kokoro

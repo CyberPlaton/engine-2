@@ -14,28 +14,18 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	bool ceffect_resource_manager_service::init()
+	std::pair<bool, seffect> seffect::load(const rttr::variant& snapshot)
 	{
-		return true;
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	seffect ceffect_resource_manager_service::do_instantiate(const seffect_snapshot* snaps)
-	{
+		const auto& snaps = snapshot.get_value<seffect_snapshot>();
 		seffect effect;
 		auto& vfs = instance().service<cvirtual_filesystem_service>();
 
 		const auto load_file = [&](const filepath_t& path) -> core::memory_ref_t
 			{
-				if (auto file = vfs.open(path, file_options_read | file_options_text); file)
+				if (auto wrapper = vfs.open(path, file_options_read | file_options_text); wrapper)
 				{
-					auto future = file->read_async();
-
-					while (future.wait_for(std::chrono::nanoseconds(0)) != std::future_status::ready) {}
-					file->close();
-
-					auto mem = future.get();
-
+					auto& file = wrapper.get();
+					auto mem = file.read_sync();
 					if (mem && !mem->empty())
 					{
 						return mem;
@@ -48,9 +38,9 @@ namespace kokoro
 		{
 			//- Check whether we are loading an 'fx' file that contains a pixel and vertex shader in one file,
 			//- or just a regular situation with one shader per file.
-			if (snaps->m_vs.m_filepath_or_name == snaps->m_ps.m_filepath_or_name)
+			if (snaps.m_vs.m_filepath_or_name == snaps.m_ps.m_filepath_or_name)
 			{
-				filepath_t fx_filepath = snaps->m_vs.m_filepath_or_name;
+				filepath_t fx_filepath = snaps.m_vs.m_filepath_or_name;
 
 				if (!vfs.exists(fx_filepath))
 				{
@@ -62,8 +52,8 @@ namespace kokoro
 					else
 					{
 						instance().service<clog_service>().err(fmt::format("Could not find include file at '{}'",
-							snaps->m_vs.m_filepath_or_name).c_str());
-						return {};
+							snaps.m_vs.m_filepath_or_name).c_str());
+						return { false, {} };
 					}
 				}
 
@@ -111,14 +101,14 @@ namespace kokoro
 			{
 				//- Load vertex shader
 				{
-					const auto filepath = filepath_t(snaps->m_vs.m_filepath_or_name);
+					const auto filepath = filepath_t(snaps.m_vs.m_filepath_or_name);
 
 					scompile_options options;
 					options.m_name = filepath.filename().generic_string();
 					options.m_type = scompile_options::shader_type_vertex;
 					options.m_include_dirs.push_back(filepath.parent_path().generic_string());
 
-					switch (snaps->m_vs.m_type)
+					switch (snaps.m_vs.m_type)
 					{
 					case seffect_snapshot::type_file:
 					{
@@ -137,7 +127,7 @@ namespace kokoro
 					}
 					case seffect_snapshot::type_embedded:
 					{
-						const char* code = sembedded_shaders::get(snaps->m_vs.m_filepath_or_name.c_str());
+						const char* code = sembedded_shaders::get(snaps.m_vs.m_filepath_or_name.c_str());
 						ceffect_parser parser(code);
 						const auto output = parser.parse();
 
@@ -156,14 +146,14 @@ namespace kokoro
 
 				//- Load pixel shader
 				{
-					const auto filepath = filepath_t(snaps->m_ps.m_filepath_or_name);
+					const auto filepath = filepath_t(snaps.m_ps.m_filepath_or_name);
 
 					scompile_options options;
 					options.m_name = filepath.filename().generic_string();
 					options.m_type = scompile_options::shader_type_pixel;
 					options.m_include_dirs.push_back(filepath.parent_path().generic_string());
 
-					switch (snaps->m_ps.m_type)
+					switch (snaps.m_ps.m_type)
 					{
 					case seffect_snapshot::type_file:
 					{
@@ -182,7 +172,7 @@ namespace kokoro
 					}
 					case seffect_snapshot::type_embedded:
 					{
-						const char* code = sembedded_shaders::get(snaps->m_ps.m_filepath_or_name.c_str());
+						const char* code = sembedded_shaders::get(snaps.m_ps.m_filepath_or_name.c_str());
 						ceffect_parser parser(code);
 						const auto output = parser.parse();
 
@@ -205,69 +195,26 @@ namespace kokoro
 			{
 				effect.m_program = bgfx::createProgram(effect.m_vs.m_handle, effect.m_ps.m_handle);
 			}
-
-			//- Load uniform data
-			for (const auto& snapshot_uniform : snaps->m_uniforms)
-			{
-				auto& uniform = effect.m_uniforms.emplace_back();
-				uniform = std::move(create_uniform(uniform.m_name.c_str(), uniform.m_type));
-				if (uniform.m_data.is_valid())
-				{
-					auto data = snapshot_uniform.m_data;
-					update_uniform(uniform, std::move(data));
-				}
-			}
 		}
-		return effect;
+		return { true, effect };
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	void ceffect_resource_manager_service::do_destroy(seffect* inst)
+	void seffect::unload(seffect& effect)
 	{
-		//- Destroy the uniforms if effect is using any
-		for (auto& uniform : inst->m_uniforms)
-		{
-			if (bgfx::isValid(uniform.m_handle))
-			{
-				bgfx::destroy(uniform.m_handle);
-			}
-		}
-
 		//- Destroy the vertex and pixel shaders
-		if (bgfx::isValid(inst->m_vs.m_handle))
+		if (bgfx::isValid(effect.m_vs.m_handle))
 		{
-			bgfx::destroy(inst->m_vs.m_handle);
+			bgfx::destroy(effect.m_vs.m_handle);
 		}
-		if (bgfx::isValid(inst->m_ps.m_handle))
+		if (bgfx::isValid(effect.m_ps.m_handle))
 		{
-			bgfx::destroy(inst->m_ps.m_handle);
+			bgfx::destroy(effect.m_ps.m_handle);
 		}
-		if (bgfx::isValid(inst->m_program))
+		if (bgfx::isValid(effect.m_program))
 		{
-			bgfx::destroy(inst->m_program);
+			bgfx::destroy(effect.m_program);
 		}
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	suniform create_uniform(const char* name, suniform::type type)
-	{
-		suniform output;
-		output.m_name = name;
-		output.m_handle = bgfx::createUniform(name, type);
-
-		if (bgfx::isValid(output.m_handle))
-		{
-			output.m_type = type;
-			return output;
-		}
-		return {};
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	void update_uniform(suniform& uniform, rttr::variant&& data)
-	{
-		uniform.m_data = std::move(data);
-		bgfx::setUniform(uniform.m_handle, uniform.m_data.get_raw_ptr());
 	}
 
 } //- kokoro
@@ -276,27 +223,18 @@ RTTR_REGISTRATION
 {
 	using namespace kokoro;
 
-	rttr::detail::default_constructor<std::vector<suniform>>();
-
 	rttr::registration::enumeration<seffect_snapshot::type>("seffect_snapshot::type")
 		(
 			rttr::value("type_none", seffect_snapshot::type_none),
 			rttr::value("type_file", seffect_snapshot::type_file),
 			rttr::value("type_embedded", seffect_snapshot::type_embedded)
 		);
-
-	rttr::cregistrator<suniform>("suniform")
-		.prop("m_name", &suniform::m_name)
-		.prop("m_data", &suniform::m_data)
-		.prop("m_type", &suniform::m_type);
-
 	rttr::cregistrator<seffect_snapshot::ssnapshot_shader>("seffect_snapshot::sshader")
 		.prop("m_filepath_or_name", &seffect_snapshot::ssnapshot_shader::m_filepath_or_name)
 		.prop("m_type", &seffect_snapshot::ssnapshot_shader::m_type);
 
 	rttr::cregistrator<seffect_snapshot>("seffect_snapshot")
 		.prop("m_vs", &seffect_snapshot::m_vs)
-		.prop("m_ps", &seffect_snapshot::m_ps)
-		.prop("m_uniforms", &seffect_snapshot::m_uniforms);
+		.prop("m_ps", &seffect_snapshot::m_ps);
 
 }
