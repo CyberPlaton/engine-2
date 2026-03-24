@@ -82,20 +82,10 @@ namespace kokoro
 	template<typename TResource>
 	const rttr::variant& cresource_manager_service::snapshot(filepath_t path)
 	{
-		//- Try to resolve the snapshot before loading and deserializing
-		{
-			core::cscoped_mutex m(m_mutex);
-
-			if (const auto it = m_snapshots.find(core::hash(path.generic_string())); it != m_snapshots.end())
-			{
-				return it->second;
-			}
-		}
-
+		//- Try resolving filepath using virtual file system
 		auto& vfs = instance().service<cvirtual_filesystem_service>();
 		if (!vfs.exists(path))
 		{
-			//- Try resolving filepath using virtual file system
 			if (const auto [result, value] = vfs.resolve(path); result)
 			{
 				path = value;
@@ -104,6 +94,16 @@ namespace kokoro
 			{
 				instance().service<clog_service>().err(fmt::format("Could not find resource snapshot file at '{}'", path.generic_string()).c_str());
 				return {};
+			}
+		}
+
+		//- Try to resolve the snapshot before loading and deserializing
+		{
+			core::cscoped_mutex m(m_mutex);
+
+			if (const auto it = m_snapshots.find(core::hash(path.generic_string())); it != m_snapshots.end())
+			{
+				return it->second;
 			}
 		}
 
