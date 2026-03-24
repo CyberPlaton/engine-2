@@ -169,6 +169,8 @@ namespace kokoro
 	template<typename TResource>
 	cview<TResource> cresource_manager_service::load(filepath_t path)
 	{
+		instance().service<clog_service>().debug(fmt::format("Loading resource '{}'", path.generic_string()).c_str());
+
 		//- FIXME: something else for IDs needed, otherwise we cant have multiple instances from same file
 		const auto id = core::hash(path.generic_string());
 		const auto resource_type = rttr::type::get<TResource>();

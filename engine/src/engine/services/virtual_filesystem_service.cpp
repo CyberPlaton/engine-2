@@ -389,6 +389,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	auto cvirtual_filesystem_service::open(const filepath_t& filepath, int file_mode) -> cfile_wrapper
 	{
+		core::cscoped_mutex m(m_mutex);
 		const auto filepath_string = filepath.generic_string();
 
 		if (const auto it = m_files.find(filepath_string); it != m_files.end())
@@ -439,6 +440,13 @@ namespace kokoro
 			}
 		}
 		return {};
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	void cvirtual_filesystem_service::evict(const filepath_t& filepath)
+	{
+		core::cscoped_mutex m(m_mutex);
+		m_files.erase(filepath.generic_string());
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

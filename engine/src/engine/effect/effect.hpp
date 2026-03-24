@@ -37,7 +37,6 @@ namespace kokoro
 
 		struct sshader
 		{
-			core::memory_ref_t m_data = nullptr;
 			bgfx::ShaderHandle m_handle = BGFX_INVALID_HANDLE;
 		};
 

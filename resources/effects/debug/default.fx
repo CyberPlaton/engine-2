@@ -1,7 +1,6 @@
 @ VERTEX
-$input a_position, a_color0
-$output v_color
-
+$input a_position, a_color0, a_texcoord0
+$output v_color, v_texcoord0
 #include <engine/shaders/bgfx_shader.sh>
 
 //------------------------------------------------------------------------------------------------------------------------
@@ -13,9 +12,9 @@ void main()
 @ !VERTEX
 
 @ PIXEL
-$input v_color
-
+$input v_color, v_texcoord0
 #include <engine/shaders/bgfx_shader.sh>
+SAMPLER2D(s_texture, 0);
 
 //------------------------------------------------------------------------------------------------------------------------
 void main()

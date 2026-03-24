@@ -110,6 +110,7 @@ namespace kokoro
 		auto		resolve(const filepath_t& filepath) const -> std::pair<bool, filepath_t>;
 		auto		assign(std::string_view alias, std::string_view basepath) -> cvirtual_filesystem_service&;
 		auto		open(const filepath_t& filepath, int file_mode) -> cfile_wrapper;
+		void		evict(const filepath_t& filepath);
 		std::string	basepath(std::string_view alias) const;
 
 	private:

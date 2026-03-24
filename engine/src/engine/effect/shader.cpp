@@ -2,6 +2,7 @@
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <engine/services/log_service.hpp>
 #include <engine.hpp>
+#include <core/mutex.hpp>
 #include <../bgfx/tools/shaderc/shaderc.h>
 #include <fmt.h>
 
@@ -9,6 +10,8 @@ namespace kokoro
 {
 	namespace
 	{
+		core::cmutex mutex;
+
 		//------------------------------------------------------------------------------------------------------------------------
 		template<typename TIterator>
 		std::string join(TIterator begin, TIterator end, const char* delim)
@@ -164,6 +167,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	core::memory_ref_t compile_shader_from_string(const char* code, scompile_options& options)
 	{
+		core::cscoped_mutex m(mutex);
+
 		auto& vfs = instance().service<cvirtual_filesystem_service>();
 		auto& log = instance().service<clog_service>();
 
@@ -253,10 +258,11 @@ namespace kokoro
 		}
 
 		//- Erase the temporary file used for compilation
-// 		{
-// 			std::error_code err;
-// 			std::filesystem::remove_all(temp_path, err);
-// 		}
+		{
+			std::error_code err;
+			std::filesystem::remove_all(temp_path, err);
+			vfs.evict(temp_path);
+		}
 
 		return memory;
 	}

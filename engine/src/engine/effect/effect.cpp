@@ -11,6 +11,7 @@
 #include <fmt.h>
 #include <unordered_map>
 
+#pragma optimize("", off)
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
@@ -81,8 +82,8 @@ namespace kokoro
 							options.m_name = fx_filepath.filename().generic_string();
 							options.m_type = scompile_options::shader_type_vertex;
 							options.m_include_dirs.push_back(fx_filepath.parent_path().generic_string());
-							effect.m_vs.m_data = compile_shader_from_string(output.m_vs.c_str(), options);
-							effect.m_vs.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_vs.m_data->data(), effect.m_vs.m_data->size()));
+							auto mem = compile_shader_from_string(output.m_vs.c_str(), options);
+							effect.m_vs.m_handle = bgfx::createShader(bgfx::copy(mem->data(), mem->size()));
 						}
 
 						//- Load pixel shader
@@ -91,8 +92,8 @@ namespace kokoro
 							options.m_name = fx_filepath.filename().generic_string();
 							options.m_type = scompile_options::shader_type_pixel;
 							options.m_include_dirs.push_back(fx_filepath.parent_path().generic_string());
-							effect.m_ps.m_data = compile_shader_from_string(output.m_ps.c_str(), options);
-							effect.m_ps.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_ps.m_data->data(), effect.m_ps.m_data->size()));
+							auto mem = compile_shader_from_string(output.m_ps.c_str(), options);
+							effect.m_ps.m_handle = bgfx::createShader(bgfx::copy(mem->data(), mem->size()));
 						}
 					}
 				}
@@ -119,8 +120,8 @@ namespace kokoro
 
 							if (!output.m_vs.empty())
 							{
-								effect.m_vs.m_data = compile_shader_from_string(output.m_vs.c_str(), options);
-								effect.m_vs.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_vs.m_data->data(), effect.m_vs.m_data->size()));
+								auto mem = compile_shader_from_string(output.m_vs.c_str(), options);
+								effect.m_vs.m_handle = bgfx::createShader(bgfx::copy(mem->data(), mem->size()));
 							}
 						}
 						break;
@@ -133,8 +134,8 @@ namespace kokoro
 
 						if (!output.m_vs.empty())
 						{
-							effect.m_vs.m_data = compile_shader_from_string(output.m_vs.c_str(), options);
-							effect.m_vs.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_vs.m_data->data(), effect.m_vs.m_data->size()));
+							auto mem = compile_shader_from_string(output.m_vs.c_str(), options);
+							effect.m_vs.m_handle = bgfx::createShader(bgfx::copy(mem->data(), mem->size()));
 						}
 						break;
 					}
@@ -164,8 +165,8 @@ namespace kokoro
 
 							if (!output.m_ps.empty())
 							{
-								effect.m_ps.m_data = compile_shader_from_string(output.m_ps.c_str(), options);
-								effect.m_ps.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_ps.m_data->data(), effect.m_ps.m_data->size()));
+								auto mem = compile_shader_from_string(output.m_ps.c_str(), options);
+								effect.m_ps.m_handle = bgfx::createShader(bgfx::copy(mem->data(), mem->size()));
 							}
 						}
 						break;
@@ -178,8 +179,8 @@ namespace kokoro
 
 						if (!output.m_ps.empty())
 						{
-							effect.m_ps.m_data = compile_shader_from_string(output.m_ps.c_str(), options);
-							effect.m_ps.m_handle = bgfx::createShader(bgfx::makeRef(effect.m_ps.m_data->data(), effect.m_ps.m_data->size()));
+							auto mem = compile_shader_from_string(output.m_ps.c_str(), options);
+							effect.m_ps.m_handle = bgfx::createShader(bgfx::copy(mem->data(), mem->size()));
 						}
 						break;
 					}

@@ -94,6 +94,7 @@ function set_basic_defines()
 			"_CRT_SECURE_NO_DEPRECATE",
 			"RTTR_DLL",						-- RTTR
 			"USE_MALLOC_LOCK",				-- DLMALLOC concurrency safety
+			"BGFX_CONFIG_MULTITHREADED=1"	-- BGFX set for concurrency
 			}
 
 	if IS_WARNING_AND_ERRORS_ENABLED == false then
