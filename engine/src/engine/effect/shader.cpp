@@ -12,13 +12,6 @@ namespace kokoro
 	{
 		core::cmutex mutex;
 
-		//------------------------------------------------------------------------------------------------------------------------
-		template<typename TIterator>
-		std::string join(TIterator begin, TIterator end, const char* delim)
-		{
-			return fmt::to_string(fmt::join(begin, end, delim));
-		}
-
 		//- Write incoming data to a string form
 		//------------------------------------------------------------------------------------------------------------------------
 		class cstringwriter final : public bx::WriterI
@@ -202,14 +195,26 @@ namespace kokoro
 			log.debug(fmt::format("\tvarying:\n'{}'",
 				options.m_varying).c_str());
 
-			log.debug(fmt::format("\tincludes '{}'",
-				join(options.m_include_dirs.begin(), options.m_include_dirs.end(), ",  ")).c_str());
+			const auto report_array = [&log](std::string_view title, auto begin, auto end, const char* prefix)
+				{
+					log.debug(fmt::format("\t{}", title).c_str());
 
-			log.debug(fmt::format("\tdefines '{}'",
-				join(options.m_defines.begin(), options.m_defines.end(), ",  ")).c_str());
+					if (begin == end)
+					{
+						log.debug(fmt::format("{}-/-", prefix).c_str());
+					}
+					else
+					{
+						for (auto value = begin; value != end; ++value)
+						{
+							log.debug(fmt::format("{} - {}", prefix, value->c_str()).c_str());
+						}
+					}
+				};
 
-			log.debug(fmt::format("\tdeps '{}'",
-				join(options.m_deps.begin(), options.m_deps.end(), ",  ")).c_str());
+			report_array("includes:", options.m_include_dirs.begin(), options.m_include_dirs.end(), "\t\t");
+			report_array("defines:", options.m_defines.begin(), options.m_defines.end(), "\t\t");
+			report_array("deps:", options.m_deps.begin(), options.m_deps.end(), "\t\t");
 		}
 
 		auto bgfx_options = to_bgfx_options(options);
@@ -256,14 +261,6 @@ namespace kokoro
 			log.err("\tfailed to compile:\n'{}'",
 				logwriter.m_buffer);
 		}
-
-		//- Erase the temporary file used for compilation
-		{
-			std::error_code err;
-			std::filesystem::remove_all(temp_path, err);
-			vfs.evict(temp_path);
-		}
-
 		return memory;
 	}
 

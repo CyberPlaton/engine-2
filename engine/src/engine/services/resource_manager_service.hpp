@@ -55,7 +55,8 @@ namespace kokoro
 	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
 	cresource_manager_service& cresource_manager_service::new_manager()
 	{
-		static_assert(std::is_copy_constructible_v<TResource>, "Resource type must be copy-constructible");
+		static_assert(std::is_copy_constructible_v<TResource> && std::is_copy_constructible_v<TSnapshot>,
+			"Resource and snapshot types must be copy-constructible");
 
 		const auto resource_type = rttr::type::get<TResource>();
 		const auto snapshot_type = rttr::type::get<TSnapshot>();
