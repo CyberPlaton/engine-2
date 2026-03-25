@@ -170,13 +170,16 @@ namespace kokoro
 	template<typename TResource>
 	cview<TResource> cresource_manager_service::load(filepath_t path)
 	{
-		instance().service<clog_service>().debug(fmt::format("Loading resource '{}'", path.generic_string()).c_str());
-
 		//- FIXME: something else for IDs needed, otherwise we cant have multiple instances from same file
 		const auto id = core::hash(path.generic_string());
 		const auto resource_type = rttr::type::get<TResource>();
 		const auto type_id = resource_type.get_id();
 		const auto& desc = cache_desc(type_id);
+
+		instance().service<clog_service>().debug(fmt::format("Loading resource '{} (id={}, type={})'",
+			path.generic_string(),
+			id,
+			resource_type.get_name().data()).c_str());
 
 		//- When we are not having unique instances, we want to check for existing resource and return it instead of loading anew
 		if(!desc.m_unique_instances)
@@ -199,7 +202,7 @@ namespace kokoro
 
 		//- Create a task for loading the resource
 		instance().service<cthread_service>().async(fmt::format("load '{}'", path.generic_u8string()),
-			[&]()
+			[&c, &snaps, id]()
 			{
 				//- Perform the actual loading of the resource. Success indicates whether the loading
 				//- was in order and we can proceed storing the resource

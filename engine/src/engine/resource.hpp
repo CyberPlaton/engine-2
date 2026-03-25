@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <core/mutex.hpp>
+#include <core/profile.hpp>
+#include <engine.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <queue>
@@ -147,15 +149,18 @@ namespace kokoro
 	template<typename TType>
 	void ccache<TType>::commit()
 	{
+		CPU_ZONE;
+
 		//- Function moves resources from pending to use-ready entries
 		//- and updates its state and assigns a valid id
 		core::cscoped_mutex m(m_mutex);
 		while (!m_pending_load.empty())
 		{
 			auto& [success, id, data] = m_pending_load.back();
-			auto& entry = m_entries[id];
+			auto& entry = m_entries.find(id)->second;
 			if (success)
 			{
+				//- Note, id and path are assigned by the resource manager
 				entry.m_data = std::move(data);
 				entry.m_state = resource_state_finished;
 			}
@@ -163,6 +168,25 @@ namespace kokoro
 			{
 				entry.m_state = resource_state_failed;
 			}
+
+#if DEBUG || HYBRID
+			const auto resource_type = rttr::type::get<TType>();
+			const auto text = fmt::format("{} resource '{} (id={}, type={})'",
+				success ? "Successfully loaded" : "Failed loading",
+				m_entries.find(id)->second.m_path.generic_string(),
+				id,
+				resource_type.get_name().data());
+
+			if (success)
+			{
+				instance().service<clog_service>().info(text.c_str());
+			}
+			else
+			{
+				instance().service<clog_service>().err(text.c_str());
+			}
+#endif
+
 			m_pending_load.pop();
 
 			//- Check if an unload was scheduled for this resource, and if so, perform it here
