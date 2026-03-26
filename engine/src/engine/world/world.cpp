@@ -6,7 +6,6 @@
 #include <engine/components/camera.hpp>
 #include <engine/components/transforms.hpp>
 #include <engine/components/viewport.hpp>
-#include <core/algorithm.hpp>
 #include <core/hash.hpp>
 #include <core/mutex.hpp>
 #include <core/uuid.hpp>
@@ -1010,8 +1009,7 @@ namespace kokoro
 				//- Get the result for return and erase it from result map
 				const auto it = w.m_query_results.find(i);
 				rttr::variant var = std::move(it->second);
-				core::erase(w.m_query_results, it);
-
+				w.m_query_results.erase(it);
 				return var;
 			}
 
@@ -1025,7 +1023,7 @@ namespace kokoro
 					out = it->second;
 
 					//- Result will be taken and we do not need to hold it anymore
-					core::erase(w.m_query_results, it);
+					w.m_query_results.erase(it);
 				}
 				return out;
 			}

@@ -74,7 +74,6 @@ namespace kokoro
 			std::forward_as_tuple(type_id),
 			std::forward_as_tuple(std::move(desc))); result)
 		{
-			//- Log something or not
 		}
 		return *this;
 	}
@@ -94,7 +93,6 @@ namespace kokoro
 			else
 			{
 				instance().service<clog_service>().err(fmt::format("Could not find resource snapshot file at '{}'", path.generic_string()).c_str());
-				return {};
 			}
 		}
 
@@ -130,7 +128,9 @@ namespace kokoro
 				}
 			}
 		}
-		return {};
+
+		static rttr::variant S_DUMMY;
+		return S_DUMMY;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
