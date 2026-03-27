@@ -29,7 +29,7 @@ namespace kokoro
 		template<typename TResource>
 		void							unload(filepath_t path);
 		template<typename TResource>
-		const rttr::variant&			snapshot(filepath_t path);
+		rttr::variant					snapshot(filepath_t path);
 
 	private:
 		struct sresource_cache_desc
@@ -80,7 +80,7 @@ namespace kokoro
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TResource>
-	const rttr::variant& cresource_manager_service::snapshot(filepath_t path)
+	rttr::variant cresource_manager_service::snapshot(filepath_t path)
 	{
 		//- Try resolving filepath using virtual file system
 		auto& vfs = instance().service<cvirtual_filesystem_service>();
@@ -128,9 +128,7 @@ namespace kokoro
 				}
 			}
 		}
-
-		static rttr::variant S_DUMMY;
-		return S_DUMMY;
+		return {};
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -198,11 +196,11 @@ namespace kokoro
 			entry.m_state = resource_state_pending;
 		}
 
-		const rttr::variant& snaps = snapshot<TResource>(path);
+		rttr::variant snaps = snapshot<TResource>(path);
 
 		//- Create a task for loading the resource
 		instance().service<cthread_service>().async(fmt::format("load '{}'", path.generic_u8string()),
-			[&c, &snaps, id]()
+			[&c, id, snaps=std::move(snaps)]()
 			{
 				//- Perform the actual loading of the resource. Success indicates whether the loading
 				//- was in order and we can proceed storing the resource

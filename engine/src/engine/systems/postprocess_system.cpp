@@ -124,6 +124,10 @@ namespace kokoro
 	void postprocess_submit_system(flecs::iter& it, float dt)
 	{
 		//- Given raw submission order, create an actual order of execution
+		if (raw_postprocesses.empty())
+		{
+			return;
+		}
 		ordered_postprocesses.clear();
 		sort_postprocesses(raw_postprocesses, ordered_postprocesses);
 		raw_postprocesses.clear();
@@ -196,3 +200,10 @@ namespace kokoro
 	}
 
 } //- kokoro
+
+RTTR_REGISTRATION
+{
+	using namespace kokoro;
+	REGISTER_SYSTEM(spostprocess_gather_system);
+	REGISTER_SYSTEM(spostprocess_submit_system);
+}

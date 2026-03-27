@@ -278,35 +278,35 @@ namespace kokoro
 					}
 
 					w.m_world.module<TModule>(cfg.m_name.data());
+				}
 
-					//- Register module components
-					for (const auto& c : cfg.m_components)
+				//- Register module components
+				for (const auto& c : cfg.m_components)
+				{
+					if (const auto t = rttr::type::get_by_name(c.data()); t.is_valid())
 					{
-						if (const auto t = rttr::type::get_by_name(c.data()); t.is_valid())
-						{
-							//- Calling special component constructor that register the component to provided world
-							t.create({ w.m_world });
-						}
-						else
-						{
-							instance().service<clog_service>().err("Failed creating component '{}' for world '{}' and module '{}', as the component is not reflected to RTTR!",
-								c.data(), w.name(), cfg.m_name.data());
-						}
+						//- Calling special component constructor that register the component to provided world
+						t.create({ w.m_world });
 					}
-
-					//- Register module systems
-					for (const auto& s : cfg.m_systems)
+					else
 					{
-						if (const auto t = rttr::type::get_by_name(s.data()); t.is_valid())
-						{
-							//- Calling system constructor that does the actual registration of the system
-							t.create({ w });
-						}
-						else
-						{
-							instance().service<clog_service>().err("Failed creating system '{}' for world '{}' and module '{}', as the system is not reflected to RTTR!",
-								s.data(), w.name(), cfg.m_name.data());
-						}
+						instance().service<clog_service>().err("Failed creating component '{}' for world '{}' and module '{}', as the component is not reflected to RTTR!",
+							c.data(), w.name(), cfg.m_name.data());
+					}
+				}
+
+				//- Register module systems
+				for (const auto& s : cfg.m_systems)
+				{
+					if (const auto t = rttr::type::get_by_name(s.data()); t.is_valid())
+					{
+						//- Calling system constructor that does the actual registration of the system
+						t.create({ w });
+					}
+					else
+					{
+						instance().service<clog_service>().err("Failed creating system '{}' for world '{}' and module '{}', as the system is not reflected to RTTR!",
+							s.data(), w.name(), cfg.m_name.data());
 					}
 				}
 			};

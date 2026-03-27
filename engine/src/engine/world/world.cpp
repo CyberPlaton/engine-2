@@ -675,7 +675,7 @@ namespace kokoro
 
 						auto type = rttr::type::get_by_name(module.data());
 
-						auto var = type.create({ &w });
+						auto var = type.create({ w });
 					}
 				}
 			}

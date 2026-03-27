@@ -121,7 +121,7 @@ function configure()
 		symbols "On"
 		optimize "Off"
 	filter{"configurations:hybrid"}
-		symbols "On"
+		symbols "Full"
 		optimize "Full"
 	filter{"configurations:release"}
 		symbols "Off"

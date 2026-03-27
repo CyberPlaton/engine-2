@@ -10,7 +10,7 @@ namespace kokoro
 		cfg.m_name = "srender_module";
 		cfg.m_components = {};
 		cfg.m_systems = {};
-		cfg.m_modules = {};
+		cfg.m_modules = { "spostprocess_module" };
 
 		return cfg;
 	}

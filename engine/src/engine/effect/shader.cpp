@@ -261,6 +261,14 @@ namespace kokoro
 			log.err("\tfailed to compile:\n'{}'",
 				logwriter.m_buffer);
 		}
+
+		//- Erase the temporary file used for compilation
+		{
+			std::error_code err;
+			std::filesystem::remove_all(temp_path, err);
+			vfs.evict(temp_path);
+		}
+
 		return memory;
 	}
 

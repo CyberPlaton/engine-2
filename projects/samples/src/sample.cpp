@@ -13,6 +13,7 @@ bool cgame::init()
 //------------------------------------------------------------------------------------------------------------------------
 void cgame::post_init()
 {
+	kokoro::world::modules::import(*m_world, { "srender_module" });
 	m_dd.init();
 }
 
