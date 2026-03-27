@@ -711,7 +711,7 @@ namespace kokoro
 
 				if (cfg.m_interval != 0)
 				{
-					builder.interval(cfg.m_interval);
+					builder.interval(static_cast<float>(cfg.m_interval));
 				}
 
 				//- Create function to be called for running the task

@@ -11,6 +11,7 @@
 #include <engine/services/log_service.hpp>
 #include <engine.hpp>
 #include <box2d.h>
+#include <fmt.h>
 #include <optional>
 
 namespace kokoro
@@ -318,11 +319,11 @@ namespace kokoro
 
 				//- Set options that are required before system entity creation
 				{
-					if (algorithm::bit_check(cfg.m_flags, system::system_flag_multithreaded))
+					if (!!(cfg.m_flags & system::system_flag_multithreaded))
 					{
 						builder.multi_threaded();
 					}
-					else if (algorithm::bit_check(cfg.m_flags, system::system_flag_immediate))
+					else if (!!(cfg.m_flags & system::system_flag_immediate))
 					{
 						builder.immediate();
 					}
@@ -337,7 +338,7 @@ namespace kokoro
 
 				if (cfg.m_interval != 0)
 				{
-					builder.interval(cfg.m_interval);
+					builder.interval(static_cast<float>(cfg.m_interval));
 				}
 
 				auto system = builder.each(callback);

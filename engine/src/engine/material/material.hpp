@@ -49,15 +49,15 @@ namespace kokoro
 			| BGFX_STATE_BLEND_NORMAL
 			;
 
-		static std::pair<bool, smaterial>	load(const rttr::variant& snapshot);
-		static void							unload(smaterial& material);
-
 		struct ssampler_texture
 		{
 			cview<stexture> m_texture;
 			uint64_t m_sampler_flags = 0;
 			uint8_t m_sampler_stage = 0;
 		};
+
+		static std::pair<bool, smaterial>	load(const rttr::variant& snapshot);
+		static void							unload(smaterial& material);
 
 		std::vector<ssampler_texture> m_sampler_textures;
 		std::vector<suniform> m_uniforms;

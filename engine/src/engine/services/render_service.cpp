@@ -146,7 +146,6 @@ namespace kokoro
 			| BGFX_STATE_WRITE_RGB
 			| BGFX_STATE_WRITE_A
 			| BGFX_STATE_WRITE_Z
-			| BGFX_STATE_CULL_CW
 			| BGFX_STATE_MSAA);
 
 		//- Set the accumulated framebuffer texture for rendering to screen
@@ -215,6 +214,19 @@ namespace kokoro
 
 			bgfx::setVertexBuffer(0, &vb);
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	void crender_service::bind_builtin_uniforms()
+	{
+
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	auto crender_service::merge_program(uint16_t postprocesses) const -> const cview<seffect>
+	{
+		return (postprocesses % 2 == 0) ? m_apply_back0_program :
+			m_apply_back1_program;
 	}
 
 } //- kokoro

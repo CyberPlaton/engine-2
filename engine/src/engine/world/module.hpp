@@ -8,7 +8,7 @@
 #define REGISTER_MODULE(m) \
 	rttr::cregistrator<m>(STRINGIFY(m)) \
 		.ctor<kokoro::world::sworld&>() \
-		.meth(kokoro::modules::smodule::C_MODULE_CONFIG_FUNC_NAME, &m::config) \
+		.meth("config", &m::config) \
 		;
 
 //-------------------------------------------------------------------------------------------------------------------------
