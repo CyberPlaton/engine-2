@@ -1353,9 +1353,8 @@ namespace kokoro
 
 			auto& vfs = instance().service<cvirtual_filesystem_service>();
 
-			if (auto wrapper = vfs.open(name_or_filepath, file_options_read | file_options_text); wrapper)
+			if (auto file = vfs.open(name_or_filepath, file_options_read | file_options_text); file.opened())
 			{
-				auto& file = wrapper.get();
 				auto mem = file.read_sync();
 
 				if (mem && !mem->empty())

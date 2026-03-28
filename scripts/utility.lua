@@ -65,15 +65,21 @@ function set_basic_defines()
 	end
 
 	if IS_PROFILE_ENABLED == true then
-		defines{"PROFILE_ENABLE"}
+		defines{"PROFILE_ENABLE=1"}
+	else
+		defines{"PROFILE_ENABLE=0"}
 	end
 	if IS_TRACY_ENABLED == true then
 		-- Enable tracy and track data only if a server (viewer application) is connected
-		defines{"TRACY_ENABLE", "TRACY_ON_DEMAND"}
+		defines{"TRACY_ENABLE=1", "TRACY_ON_DEMAND"}
 		set_tracy_includes()
+	else
+		defines{"TRACY_ENABLE=0"}
 	end
 	if IS_LOGGING_ENABLED == true then
-		defines{"LOGGING_ENABLE"}
+		defines{"LOGGING_ENABLE=1"}
+	else
+		defines{"LOGGING_ENABLE=0"}
 	end
 	if IS_ECS_DEBUG_INFO_ENABLED == true then
 		defines{"ECS_DEBUG_INFO_ENABLE=1"}
@@ -118,7 +124,7 @@ end
 ------------------------------------------------------------------------------------------------------------------------
 function configure()
 	filter{"configurations:debug"}
-		symbols "On"
+		symbols "Full"
 		optimize "Off"
 	filter{"configurations:hybrid"}
 		symbols "Full"

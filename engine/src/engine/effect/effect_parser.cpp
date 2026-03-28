@@ -13,6 +13,7 @@ namespace kokoro
 		std::string default_include_handler(const char* filepath)
 		{
 			filepath_t path = filepath;
+			auto& log = instance().service<clog_service>();
 			auto& vfs = instance().service<cvirtual_filesystem_service>();
 
 			if (!vfs.exists(path))
@@ -23,21 +24,23 @@ namespace kokoro
 				}
 				else
 				{
-					instance().service<clog_service>().err(fmt::format("Could not find include file at '{}'", filepath).c_str());
+					log.err(fmt::format("Could not find include file at '{}'", filepath).c_str());
 					return {};
 				}
 			}
 
-			if (auto wrapper = vfs.open(path, file_options_read | file_options_text); wrapper)
+			if (auto file = vfs.open(path, file_options_read | file_options_text); file.opened())
 			{
-				auto& file = wrapper.get();
 				auto mem = file.read_sync();
 
 				if (mem && !mem->empty())
 				{
+					log.info(fmt::format("Sucessfully opened include file at '{} ({} B)'", filepath, file.size()).c_str());
 					return std::string(mem->data(), mem->size());
 				}
 			}
+
+			log.err(fmt::format("Could not open include file at '{}'", filepath).c_str());
 			return {};
 		}
 

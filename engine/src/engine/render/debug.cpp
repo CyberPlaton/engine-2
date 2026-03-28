@@ -416,7 +416,10 @@ namespace kokoro
 
 		bgfx::setTransform(C_MAT4_ID.value);
 
-		bgfx::submit(s.m_view, s.m_effect.get().m_program);
+		if (s.m_effect)
+		{
+			bgfx::submit(s.m_view, s.m_effect.get().m_program);
+		}
 
 		//- Reset the geometry
 		vertices().clear();

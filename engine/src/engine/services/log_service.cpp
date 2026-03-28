@@ -11,22 +11,22 @@ namespace kokoro
 		public:
 			cspdlog_writer()
 			{
-				const char* name = nullptr;
-#if DEBUG || HYBRID
+#if LOGGING_ENABLE
 	#if PLATFORM_WINDOWS
 				AllocConsole();
 	#endif
+				const char* name = nullptr;
 #if DEBUG
-				name = "Debug";
+				name = "D";
 #elif HYBRID
-				name = "Hybrid";
+				name = "H";
+#elif RELEASE
+				name = "R";
+#else
+				name = "<Unknown>";
 #endif
 				spdlog::flush_every(std::chrono::seconds(1));
 				m_logger = spdlog::stdout_color_mt(name);
-#elif RELEASE
-				name = "Release";
-				spdlog::flush_every(std::chrono::seconds(5));
-				m_logger = spdlog::basic_logger_mt(name, "Log.log");
 #endif
 			}
 			~cspdlog_writer() = default;
@@ -66,7 +66,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	bool clog_service::init()
 	{
-		spdlog::set_pattern("%^[%n] %v%$");
+		spdlog::set_pattern("%^[%n][%L][ThreadId=%t] %v%$");
 		m_emitter = std::make_unique<cspdlog_writer>();
 		return true;
 	}
@@ -99,7 +99,10 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void clog_service::log(level l, const char* string)
 	{
-		m_emitter->write(l, string);
+		if (m_emitter)
+		{
+			m_emitter->write(l, string);
+		}
 	}
 
 } //- kokoro

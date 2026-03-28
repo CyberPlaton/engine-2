@@ -29,9 +29,8 @@ namespace kokoro
 			}
 		}
 
-		if (auto wrapper = vfs.open(path, file_options_read | file_options_binary); wrapper)
+		if (auto file = vfs.open(path, file_options_read | file_options_binary); file.opened())
 		{
-			auto& file = wrapper.get();
 			auto mem = file.read_sync();
 
 			if (mem && !mem->empty())

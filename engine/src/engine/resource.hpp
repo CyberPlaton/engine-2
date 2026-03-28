@@ -31,7 +31,7 @@ namespace kokoro
 	struct sresource final
 	{
 	public:
-		TType m_data;
+		std::unique_ptr<TType> m_data_ptr = nullptr;
 		filepath_t m_path;
 		resource_id_t m_id = invalid_id_t;
 		resource_state m_state = resource_state_none;
@@ -87,7 +87,7 @@ namespace kokoro
 			auto& entry = m_entries[id];
 			if (success)
 			{
-				entry.m_data = std::move(data);
+				entry.m_data_ptr = std::make_unique<TType>(std::move(data));
 			}
 			m_pending_load.pop();
 		}
@@ -95,7 +95,7 @@ namespace kokoro
 		//- Unload all valid and loaded resources
 		for (auto& [_, resource] : m_entries)
 		{
-			TType::unload(resource.m_data);
+			TType::unload(*resource.m_data_ptr.get());
 		}
 		m_entries.clear();
 	}
@@ -139,9 +139,9 @@ namespace kokoro
 		core::cscoped_mutex m(m_mutex);
 		if (const auto it = m_entries.find(id); it != m_entries.end())
 		{
-			return it->second.m_data;
+			return *it->second.m_data_ptr.get();
 		}
-		static thread_local TType S_DUMMY;
+		static TType S_DUMMY;
 		return S_DUMMY;
 	}
 
@@ -151,26 +151,17 @@ namespace kokoro
 	{
 		CPU_ZONE;
 
+		auto& log = instance().service<clog_service>();
+		const auto resource_type = rttr::type::get<TType>();
+
 		//- Function moves resources from pending to use-ready entries
 		//- and updates its state and assigns a valid id
 		core::cscoped_mutex m(m_mutex);
 		while (!m_pending_load.empty())
 		{
-			auto& [success, id, data] = m_pending_load.back();
+			auto& [success, id, data] = m_pending_load.front();
 			auto& entry = m_entries.find(id)->second;
-			if (success)
-			{
-				//- Note, id and path are assigned by the resource manager
-				entry.m_data = std::move(data);
-				entry.m_state = resource_state_finished;
-			}
-			else
-			{
-				entry.m_state = resource_state_failed;
-			}
 
-#if DEBUG || HYBRID
-			const auto resource_type = rttr::type::get<TType>();
 			const auto text = fmt::format("{} resource '{} (id={}, type={})'",
 				success ? "Successfully loaded" : "Failed loading",
 				m_entries.find(id)->second.m_path.generic_string(),
@@ -179,20 +170,25 @@ namespace kokoro
 
 			if (success)
 			{
-				instance().service<clog_service>().info(text.c_str());
+				//- Note, id and path are assigned by the resource manager
+				entry.m_data_ptr = std::make_unique<TType>(std::move(data));
+				entry.m_state = resource_state_finished;
+
+				log.info(text.c_str());
 			}
 			else
 			{
-				instance().service<clog_service>().err(text.c_str());
+				entry.m_state = resource_state_failed;
+
+				log.err(text.c_str());
 			}
-#endif
 
 			m_pending_load.pop();
 
 			//- Check if an unload was scheduled for this resource, and if so, perform it here
 			if (m_pending_unload.count(id) > 0)
 			{
-				TType::unload(entry.m_data);
+				TType::unload(*entry.m_data_ptr.get());
 				m_entries.erase(id);
 				m_pending_unload.erase(id);
 			}

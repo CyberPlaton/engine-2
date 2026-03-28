@@ -60,23 +60,11 @@ namespace kokoro
 	} //- unnamed
 
 	//------------------------------------------------------------------------------------------------------------------------
-	cfile_wrapper::cfile_wrapper(const std::shared_ptr<cfile>& file) :
-		m_file(file)
-	{
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
 	cfile::cfile(const filepath_t& filepath) :
 		m_filepath(filepath),
 		m_file(nullptr),
 		m_state(state_read_only)
 	{
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	cfile::~cfile()
-	{
-		close();
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -387,24 +375,9 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	auto cvirtual_filesystem_service::open(const filepath_t& filepath, int file_mode) -> cfile_wrapper
+	auto cvirtual_filesystem_service::open(const filepath_t& filepath, int file_mode) -> cfile
 	{
-		core::cscoped_mutex m(m_mutex);
 		const auto filepath_string = filepath.generic_string();
-
-		if (const auto it = m_files.find(filepath_string); it != m_files.end())
-		{
-			auto& file = it->second;
-			file->open(file_mode | file_options_truncate);
-
-			if (!file->opened())
-			{
-				//- Failed to open file for whatever reason, no need to keep it around
-				m_files.erase(filepath_string);
-				return {};
-			}
-			return cfile_wrapper{ it->second };
-		}
 
 		auto path = filepath;
 
@@ -422,31 +395,13 @@ namespace kokoro
 
 		//- File stored under originally given path for easy resolve without resolving for aliases,
 		//- the file itself is constructed using the real path for correct opening.
-		if (auto [it, result] = m_files.emplace(std::piecewise_construct,
-			std::forward_as_tuple(filepath_string),
-			std::forward_as_tuple(new cfile(path))); result)
+		auto file = cfile{ path };
+		file.open(file_mode | file_options_truncate);
+		if (file.opened())
 		{
-			auto& file = it->second;
-			file->open(file_mode | file_options_truncate);
-
-			if (!file->opened())
-			{
-				//- Failed to open file for whatever reason, no need to keep it around
-				m_files.erase(filepath_string);
-			}
-			else
-			{
-				return cfile_wrapper{ file };
-			}
+			return std::move(file);
 		}
 		return {};
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	void cvirtual_filesystem_service::evict(const filepath_t& filepath)
-	{
-		core::cscoped_mutex m(m_mutex);
-		m_files.erase(filepath.generic_string());
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

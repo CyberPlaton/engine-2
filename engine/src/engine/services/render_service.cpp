@@ -154,7 +154,10 @@ namespace kokoro
 
 		submit_screen_quad();
 
-		bgfx::submit(C_BACKBUFFER_PASS_ID, m_merge_program.get().m_program);
+		if (m_merge_program)
+		{
+			bgfx::submit(C_BACKBUFFER_PASS_ID, m_merge_program.get().m_program);
+		}
 
 		//- End ImGui if required
 

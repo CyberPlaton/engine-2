@@ -5,6 +5,7 @@
 
 namespace kokoro
 {
+	//- TODO: remove the ilog_writer and use spdlog directly
 	//------------------------------------------------------------------------------------------------------------------------
 	class clog_service final : public iservice
 	{
