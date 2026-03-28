@@ -19,14 +19,14 @@ namespace kokoro
 			type_embedded,
 		};
 
-		struct ssnapshot_shader
+		struct sshader
 		{
 			std::string m_filepath_or_name;
 			type m_type = type_none;
 		};
 
-		ssnapshot_shader m_vs;
-		ssnapshot_shader m_ps;
+		sshader m_vs;
+		sshader m_ps;
 	};
 
 	//------------------------------------------------------------------------------------------------------------------------

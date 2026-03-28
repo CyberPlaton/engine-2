@@ -112,7 +112,7 @@ namespace kokoro
 		else
 		{
 			//- Separate vertex and pixel shader sources (file or embedded)
-			const auto compile_shader = [&](const seffect_snapshot::ssnapshot_shader& snap,
+			const auto compile_shader = [&](const seffect_snapshot::sshader& snap,
 				scompile_options::shader_type type) -> core::memory_ref_t
 				{
 					const filepath_t filepath = snap.m_filepath_or_name;
@@ -246,9 +246,9 @@ RTTR_REGISTRATION
 			rttr::value("type_file", seffect_snapshot::type_file),
 			rttr::value("type_embedded", seffect_snapshot::type_embedded)
 		);
-	rttr::cregistrator<seffect_snapshot::ssnapshot_shader>("seffect_snapshot::sshader")
-		.prop("m_filepath_or_name", &seffect_snapshot::ssnapshot_shader::m_filepath_or_name)
-		.prop("m_type", &seffect_snapshot::ssnapshot_shader::m_type);
+	rttr::cregistrator<seffect_snapshot::sshader>("seffect_snapshot::sshader")
+		.prop("m_filepath_or_name", &seffect_snapshot::sshader::m_filepath_or_name)
+		.prop("m_type", &seffect_snapshot::sshader::m_type);
 
 	rttr::cregistrator<seffect_snapshot>("seffect_snapshot")
 		.prop("m_vs", &seffect_snapshot::m_vs)
