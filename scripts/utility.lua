@@ -111,12 +111,12 @@ end
 ------------------------------------------------------------------------------------------------------------------------
 function set_basic_links()
 	if PLATFORM == "windows" then
-		links{"gdi32", "ws2_32", "kernel32", "opengl32", "psapi", "winmm"}
+		links{"gdi32", "ws2_32", "kernel32", "psapi", "winmm"}
 	elseif PLATFORM == "linux" then
-		links{"GL", "rt", "m", "X11", "fcpp", "glslang", "glsl-optimizer", "spirv-opt", "spirv-cross"}
+		links{"rt", "m", "X11", "fcpp", "glslang", "glsl-optimizer", "spirv-opt", "spirv-cross"}
 	elseif PLATFORM == "macosx" then
 		-- setting macos built-in libraries is required to be done through linkoptions
-		linkoptions{"-framework Cocoa -framework CoreVideo -framework CoreFoundation -framework IOKit -framework OpenGL"}
+		linkoptions{"-framework Cocoa -framework CoreVideo -framework CoreFoundation -framework IOKit"}
 	else
 	end
 end
