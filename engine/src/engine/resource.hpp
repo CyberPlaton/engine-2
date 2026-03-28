@@ -31,7 +31,7 @@ namespace kokoro
 	struct sresource final
 	{
 	public:
-		std::unique_ptr<TType> m_data_ptr = nullptr;
+		TType m_data;
 		filepath_t m_path;
 		resource_id_t m_id = invalid_id_t;
 		resource_state m_state = resource_state_none;
@@ -87,7 +87,7 @@ namespace kokoro
 			auto& entry = m_entries[id];
 			if (success)
 			{
-				entry.m_data_ptr = std::make_unique<TType>(std::move(data));
+				entry.m_data = std::move(data);
 			}
 			m_pending_load.pop();
 		}
@@ -95,7 +95,7 @@ namespace kokoro
 		//- Unload all valid and loaded resources
 		for (auto& [_, resource] : m_entries)
 		{
-			TType::unload(*resource.m_data_ptr.get());
+			TType::unload(resource.m_data);
 		}
 		m_entries.clear();
 	}
@@ -139,7 +139,7 @@ namespace kokoro
 		core::cscoped_mutex m(m_mutex);
 		if (const auto it = m_entries.find(id); it != m_entries.end())
 		{
-			return *it->second.m_data_ptr.get();
+			return it->second.m_data;
 		}
 		static TType S_DUMMY;
 		return S_DUMMY;
@@ -171,7 +171,7 @@ namespace kokoro
 			if (success)
 			{
 				//- Note, id and path are assigned by the resource manager
-				entry.m_data_ptr = std::make_unique<TType>(std::move(data));
+				entry.m_data = std::move(data);
 				entry.m_state = resource_state_finished;
 
 				log.info(text.c_str());
@@ -188,7 +188,7 @@ namespace kokoro
 			//- Check if an unload was scheduled for this resource, and if so, perform it here
 			if (m_pending_unload.count(id) > 0)
 			{
-				TType::unload(*entry.m_data_ptr.get());
+				TType::unload(entry.m_data);
 				m_entries.erase(id);
 				m_pending_unload.erase(id);
 			}

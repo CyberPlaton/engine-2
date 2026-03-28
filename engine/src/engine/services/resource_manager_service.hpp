@@ -158,7 +158,7 @@ namespace kokoro
 				return;
 			}
 
-			TResource::unload(*resource.m_data_ptr.get());
+			TResource::unload(resource.m_data);
 			c->m_entries.erase(it);
 		}
 	}
