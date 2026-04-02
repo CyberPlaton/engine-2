@@ -1,19 +1,21 @@
 #include <sample.hpp>
 #include <engine/services/render_service.hpp>
 #include <engine/services/window_service.hpp>
+#include <engine/services/world_service.hpp>
+#include <engine.hpp>
 
 //------------------------------------------------------------------------------------------------------------------------
 bool cgame::init()
 {
-	m_world = kokoro::world::create("samples");
-	kokoro::world::promote(*m_world);
 	return true;
 }
 
 //------------------------------------------------------------------------------------------------------------------------
 void cgame::post_init()
 {
-	kokoro::world::modules::import(*m_world, { "srender_module" });
+	m_world = kokoro::instance().service<kokoro::cresource_manager_service>().load<kokoro::cworld>("engine/worlds/sample.world");
+	kokoro::instance().service<kokoro::cworld_service>().promote(m_world);
+	m_world.get().import_modules({ "srender_module" });
 	m_dd.init();
 }
 
@@ -21,14 +23,14 @@ void cgame::post_init()
 void cgame::shutdown()
 {
 	m_dd.shutdown();
-	kokoro::world::destroy("samples");
-	m_world = nullptr;
+	kokoro::instance().service<kokoro::cresource_manager_service>().unload<kokoro::cworld>("engine/worlds/sample.world");
 }
 
 //------------------------------------------------------------------------------------------------------------------------
 void cgame::update(float dt)
 {
-	kokoro::world::tick(*m_world, dt);
+	auto active = kokoro::instance().service<kokoro::cworld_service>().active();
+	active.get().tick(dt);
 
 	const auto& rs = kokoro::instance().service<kokoro::crender_service>();
 	const auto& ws = kokoro::instance().service<kokoro::cwindow_service>();

@@ -12,7 +12,7 @@ namespace kokoro
 	struct spostprocess_submit_system final
 	{
 		spostprocess_submit_system() = default;
-		spostprocess_submit_system(kokoro::world::sworld& w);
+		spostprocess_submit_system(kokoro::cworld* w);
 
 		static kokoro::system::sconfig config()
 		{
@@ -35,7 +35,7 @@ namespace kokoro
 	struct spostprocess_gather_system final
 	{
 		spostprocess_gather_system() = default;
-		spostprocess_gather_system(kokoro::world::sworld& w);
+		spostprocess_gather_system(kokoro::cworld* w);
 
 		static kokoro::system::sconfig config()
 		{

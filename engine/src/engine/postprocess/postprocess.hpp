@@ -5,6 +5,7 @@
 #include <rttr.h>
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace kokoro
 {
@@ -40,8 +41,8 @@ namespace kokoro
 		inline static constexpr uint64_t C_POSTPROCESS_BLEND_DEFAULT = 0
 			;
 
-		static std::pair<bool, spostprocess>	load(const rttr::variant& snapshot);
-		static void								unload(spostprocess& postprocess);
+		static std::optional<spostprocess>	load(const rttr::variant& snapshot);
+		static void							unload(spostprocess& postprocess);
 
 		std::vector<std::string> m_predecessors;
 		std::vector<std::string> m_successors;

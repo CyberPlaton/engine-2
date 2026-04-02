@@ -1,5 +1,6 @@
 #pragma once
 #include <engine/iservice.hpp>
+#include <engine/services/resource_manager_service.hpp>
 #include <engine/world/world.hpp>
 #include <core/mutex.hpp>
 
@@ -15,7 +16,7 @@ namespace kokoro
 		class icommand
 		{
 		public:
-			icommand(world::sworld* w, std::string_view pawn_name_or_uuid);
+			icommand(cview<cworld> w, std::string_view pawn_name_or_uuid);
 
 			//- Prepare command for execution, on failure it will not be executed.
 			virtual bool	prepare() { return false; };
@@ -29,13 +30,11 @@ namespace kokoro
 			pawn_id_t		pawn_id() const { return m_pawn; }
 			flecs::entity	pawn() const;
 			bool			has_pawn() const;
-
-			auto			world() const -> const world::sworld&;
-			world::sworld&	world();
+			auto			world() -> cview<cworld> { return m_world; }
 
 		private:
 			pawn_id_t m_pawn;
-			world::sworld* m_world;
+			cview<cworld> m_world;
 		};
 
 	} //- command

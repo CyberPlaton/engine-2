@@ -6,8 +6,8 @@
 //- Use macro to reflect your module, the module functions must be declared and implemented.
 //-------------------------------------------------------------------------------------------------------------------------
 #define REGISTER_MODULE(m) \
-	rttr::cregistrator<m>(STRINGIFY(m)) \
-		.ctor<kokoro::world::sworld&>() \
+	rttr::cregistrator<m>(#m) \
+		.ctor<kokoro::cworld*>() \
 		.meth("config", &m::config) \
 		;
 
@@ -15,7 +15,7 @@
 #define DECLARE_MODULE(m) \
 m() = default; \
 m(const m&) = default; \
-m(kokoro::world::sworld& w) { kokoro::world::modules::import<m>(w, config()); } \
+m(kokoro::cworld* w) { w->import_module<m>(config()); } \
 static kokoro::modules::sconfig config(); \
 RTTR_ENABLE()
 

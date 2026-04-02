@@ -1,4 +1,5 @@
 #include <engine/commands/update_component_command.hpp>
+#include <engine/world/component.hpp>
 #include <engine/world/world.hpp>
 #include <engine/services/log_service.hpp>
 #include <engine.hpp>
@@ -10,7 +11,7 @@ namespace kokoro
 	namespace command
 	{
 		//------------------------------------------------------------------------------------------------------------------------
-		cupdate_component_command::cupdate_component_command(world::sworld* w, std::string_view pawn_name_or_uuid, rttr::variant&& component) :
+		cupdate_component_command::cupdate_component_command(cview<cworld> w, std::string_view pawn_name_or_uuid, rttr::variant&& component) :
 			command::icommand(w, pawn_name_or_uuid), m_new_component(std::move(component))
 		{
 		}

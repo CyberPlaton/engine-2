@@ -1,15 +1,15 @@
 #pragma once
-#include <string_view>
 #include <core/io.hpp>
 #include <core/registrator.hpp>
 #include <rttr.h>
 #include <nlohmann.h>
+#include <string_view>
 
 //-------------------------------------------------------------------------------------------------------------------------
 #define __DECLARE_COMPONENT_IMPL__(c) \
 c() = default; \
 ~c() = default; \
-c(kokoro::world::sworld& w) { w.m_world.component<c>(); } \
+c(kokoro::cworld* w) { w->w().component<c>(); } \
 static std::string_view name() { static constexpr std::string_view C_NAME = #c; return C_NAME; } \
 static void do_default_serialize(const rttr::variant& var, nlohmann::json& json) \
 { \
@@ -256,7 +256,7 @@ namespace rttr
 		void register_common_component_functions()
 		{
 			this->ctor()
-				.template ctor<kokoro::world::sworld&>()
+				.template ctor<kokoro::cworld*>()
 				.meth(kokoro::ecs::C_COMPONENT_NAME_FUNC_NAME,					&TComponent::name)
 				.meth(kokoro::ecs::C_COMPONENT_SERIALIZE_FUNC_NAME,				&TComponent::serialize)
 				.meth(kokoro::ecs::C_COMPONENT_DESERIALIZE_FUNC_NAME,			&TComponent::deserialize)

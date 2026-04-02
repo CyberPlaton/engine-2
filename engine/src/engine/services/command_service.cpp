@@ -5,13 +5,13 @@ namespace kokoro
 	namespace command
 	{
 		//------------------------------------------------------------------------------------------------------------------------
-		icommand::icommand(world::sworld* w, std::string_view pawn_name_or_uuid)
+		icommand::icommand(cview<cworld> w, std::string_view pawn_name_or_uuid)
 			: m_pawn(invalid_pawn_id_t)
 			, m_world(w)
 		{
-			if (!pawn_name_or_uuid.empty())
+			if (!pawn_name_or_uuid.empty() && m_world.valid())
 			{
-				if (auto e = world::entity::find(*m_world, pawn_name_or_uuid); e.is_valid())
+				if (auto e = m_world.get().entity_manager().find(pawn_name_or_uuid); e.is_valid())
 				{
 					m_pawn = e.id();
 				}
@@ -21,25 +21,17 @@ namespace kokoro
 		//------------------------------------------------------------------------------------------------------------------------
 		flecs::entity icommand::pawn() const
 		{
-			return world().m_world.entity(pawn_id());
+			if (m_world.valid())
+			{
+				m_world.get().w().entity(pawn_id());
+			}
+			return {};
 		}
 
 		//------------------------------------------------------------------------------------------------------------------------
 		bool icommand::has_pawn() const
 		{
 			return pawn().is_valid();
-		}
-
-		//------------------------------------------------------------------------------------------------------------------------
-		auto icommand::world() const -> const world::sworld&
-		{
-			return *m_world;
-		}
-
-		//------------------------------------------------------------------------------------------------------------------------
-		world::sworld& icommand::world()
-		{
-			return *m_world;
 		}
 
 	} //- command

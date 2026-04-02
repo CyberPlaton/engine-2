@@ -11,7 +11,7 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	std::pair<bool, smesh> smesh::load(const rttr::variant& snapshot)
+	std::optional<smesh> smesh::load(const rttr::variant& snapshot)
 	{
 		const auto& layout = spos_color_uv_vertex::get().layout();
 		const auto& snaps = snapshot.get_value<smesh_snapshot>();
@@ -70,7 +70,7 @@ namespace kokoro
 
 		group.m_primitives.push_back(prim);
 
-		return { true, mesh };
+		return std::move(mesh);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

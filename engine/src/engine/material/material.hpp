@@ -2,6 +2,7 @@
 #include <engine/effect/effect.hpp>
 #include <engine/render/texture.hpp>
 #include <engine/services/resource_manager_service.hpp>
+#include <optional>
 
 namespace kokoro
 {
@@ -56,8 +57,8 @@ namespace kokoro
 			uint8_t m_sampler_stage = 0;
 		};
 
-		static std::pair<bool, smaterial>	load(const rttr::variant& snapshot);
-		static void							unload(smaterial& material);
+		static std::optional<smaterial>	load(const rttr::variant& snapshot);
+		static void						unload(smaterial& material);
 
 		std::vector<ssampler_texture> m_sampler_textures;
 		std::vector<suniform> m_uniforms;

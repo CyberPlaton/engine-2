@@ -6,22 +6,22 @@
 //- Use macro to reflect your system, the system function must be declared and implemented.
 //-------------------------------------------------------------------------------------------------------------------------
 #define REGISTER_SYSTEM(s) \
-	rttr::cregistrator<s>(STRINGIFY(s)) \
-		.ctor<kokoro::world::sworld&>() \
+	rttr::cregistrator<s>(#s) \
+		.ctor<kokoro::cworld*>() \
 		.meth("config", &s::config) \
 		;
 
 //-------------------------------------------------------------------------------------------------------------------------
 #define DECLARE_SYSTEM(s, f) \
 s() = default; \
-s(kokoro::world::sworld& w) { kokoro::world::modules::create_system(w, config(), f); } \
+s(kokoro::cworld* w) { w->system_manager().create_system(config(), f); } \
 static kokoro::system::sconfig config(); \
 RTTR_ENABLE(); public:
 
 //-------------------------------------------------------------------------------------------------------------------------
 #define DECLARE_TASK(t, f) \
 t() = default; \
-t(kokoro::world::sworld& w) { kokoro::world::modules::create_task(w, config(), f); } \
+t(kokoro::cworld* w) { w->system_manager().create_task(config(), f); } \
 static kokoro::system::sconfig config(); \
 RTTR_ENABLE(); public:
 

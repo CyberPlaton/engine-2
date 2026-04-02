@@ -8,7 +8,7 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	std::pair<bool, stexture> stexture::load(const rttr::variant& snapshot)
+	std::optional<stexture> stexture::load(const rttr::variant& snapshot)
 	{
 		const auto& snaps = snapshot.get_value<stexture_snapshot>();
 		auto& vfs = instance().service<cvirtual_filesystem_service>();
@@ -25,7 +25,7 @@ namespace kokoro
 			{
 				instance().service<clog_service>().err(fmt::format("Could not find texture file at '{}'",
 					snaps.m_texture).c_str());
-				return { false, {} };
+				return std::nullopt;
 			}
 		}
 
@@ -50,12 +50,12 @@ namespace kokoro
 						texture.m_image.m_numMips > 1, texture.m_image.m_numLayers, (bgfx::TextureFormat::Enum)texture.m_image.m_format,
 						C_TEXTURE_SAMPLER_FLAGS_DEFAULT, mem); bgfx::isValid(texture.m_handle))
 					{
-						return { true, texture };
+						return std::move(texture);
 					}
 				}
 			}
 		}
-		return { false, {} };
+		return std::nullopt;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

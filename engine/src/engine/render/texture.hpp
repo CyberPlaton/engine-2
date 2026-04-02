@@ -1,8 +1,9 @@
 #pragma once
+#include <engine/services/resource_manager_service.hpp>
 #include <bgfx.h>
 #include <bimg.h>
 #include <string>
-#include <engine/services/resource_manager_service.hpp>
+#include <optional>
 
 namespace kokoro
 {
@@ -15,8 +16,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	struct stexture
 	{
-		static std::pair<bool, stexture>	load(const rttr::variant& snapshot);
-		static void							unload(stexture& texture);
+		static std::optional<stexture>	load(const rttr::variant& snapshot);
+		static void						unload(stexture& texture);
 
 		using format = bgfx::TextureFormat::Enum;
 

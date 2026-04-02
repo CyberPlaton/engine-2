@@ -1,11 +1,12 @@
 #pragma once
-#include <cstdint>
-#include <vector>
 #include <engine/math/vec3.hpp>
 #include <engine/math/vec4.hpp>
 #include <engine/services/resource_manager_service.hpp>
 #include <rttr.h>
 #include <bgfx.h>
+#include <cstdint>
+#include <vector>
+#include <optional>
 
 namespace kokoro
 {
@@ -23,8 +24,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	struct smesh
 	{
-		static std::pair<bool, smesh>	load(const rttr::variant& snapshot);
-		static void						unload(smesh& mesh);
+		static std::optional<smesh>	load(const rttr::variant& snapshot);
+		static void					unload(smesh& mesh);
 
 		struct sgroup
 		{

@@ -16,5 +16,5 @@ public:
 
 private:
 	kokoro::cdebug_drawer m_dd;
-	kokoro::world::sworld* m_world = nullptr;
+	kokoro::cview<kokoro::cworld> m_world;
 };

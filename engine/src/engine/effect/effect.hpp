@@ -1,10 +1,11 @@
 #pragma once
+#include <engine/services/resource_manager_service.hpp>
+#include <core/memory.hpp>
 #include <bgfx.h>
 #include <rttr.h>
 #include <string>
 #include <vector>
-#include <core/memory.hpp>
-#include <engine/services/resource_manager_service.hpp>
+#include <optional>
 
 namespace kokoro
 {
@@ -32,7 +33,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	struct seffect
 	{
-		static std::pair<bool, seffect>	load(const rttr::variant& snapshot);
+		static std::optional<seffect>	load(const rttr::variant& snapshot);
 		static void						unload(seffect& effect);
 
 		struct sshader

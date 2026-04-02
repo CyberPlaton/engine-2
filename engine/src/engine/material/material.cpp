@@ -32,7 +32,7 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	std::pair<bool, smaterial> smaterial::load(const rttr::variant& snapshot)
+	std::optional<smaterial> smaterial::load(const rttr::variant& snapshot)
 	{
 		const auto& snaps = snapshot.get_value<smaterial_snapshot>();
 		auto& rms = instance().service<cresource_manager_service>();
@@ -65,7 +65,7 @@ namespace kokoro
 			}
 		}
 
-		return { true, material };
+		return std::move(material);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

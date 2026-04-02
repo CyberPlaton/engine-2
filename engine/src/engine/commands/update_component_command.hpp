@@ -9,7 +9,7 @@ namespace kokoro
 		class cupdate_component_command final : public command::icommand
 		{
 		public:
-			cupdate_component_command(world::sworld* w, std::string_view pawn_name_or_uuid, rttr::variant&& component);
+			cupdate_component_command(cview<cworld> w, std::string_view pawn_name_or_uuid, rttr::variant&& component);
 
 			bool prepare() override final;
 			void execute() override final;

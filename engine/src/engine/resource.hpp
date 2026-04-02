@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <queue>
-#include <tuple>
+#include <optional>
 
 namespace kokoro
 {
@@ -31,7 +31,7 @@ namespace kokoro
 	struct sresource final
 	{
 	public:
-		TType m_data;
+		std::optional<TType> m_data;
 		filepath_t m_path;
 		resource_id_t m_id = invalid_id_t;
 		resource_state m_state = resource_state_none;
@@ -68,7 +68,7 @@ namespace kokoro
 	private:
 		std::unordered_map<resource_id_t, resource_t> m_entries;
 		mutable core::cmutex m_mutex;
-		std::queue<std::tuple<bool, resource_id_t, TType>> m_pending_load;
+		std::queue<std::pair<resource_id_t, std::optional<TType>>> m_pending_load;
 		std::unordered_set<resource_id_t> m_pending_unload;
 	};
 
@@ -83,11 +83,11 @@ namespace kokoro
 		//- Before we can unload everything, we have to wait for any pending loading tasks
 		while (!m_pending_load.empty())
 		{
-			auto& [success, id, data] = m_pending_load.back();
+			auto& [id, opt_data] = m_pending_load.back();
 			auto& entry = m_entries[id];
-			if (success)
+			if (opt_data.has_value())
 			{
-				entry.m_data = std::move(data);
+				entry.m_data = std::move(opt_data);
 			}
 			m_pending_load.pop();
 		}
@@ -95,7 +95,7 @@ namespace kokoro
 		//- Unload all valid and loaded resources
 		for (auto& [_, resource] : m_entries)
 		{
-			TType::unload(resource.m_data);
+			TType::unload(resource.m_data.value());
 		}
 		m_entries.clear();
 	}
@@ -137,12 +137,7 @@ namespace kokoro
 	TType& ccache<TType>::get(resource_id_t id)
 	{
 		core::cscoped_mutex m(m_mutex);
-		if (const auto it = m_entries.find(id); it != m_entries.end())
-		{
-			return it->second.m_data;
-		}
-		static TType S_DUMMY;
-		return S_DUMMY;
+		return m_entries.at(id).m_data.value();
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -159,19 +154,19 @@ namespace kokoro
 		core::cscoped_mutex m(m_mutex);
 		while (!m_pending_load.empty())
 		{
-			auto& [success, id, data] = m_pending_load.front();
+			auto& [id, opt_data] = m_pending_load.front();
 			auto& entry = m_entries.find(id)->second;
 
 			const auto text = fmt::format("{} resource '{} (id={}, type={})'",
-				success ? "Successfully loaded" : "Failed loading",
+				opt_data.has_value() ? "Successfully loaded" : "Failed loading",
 				m_entries.find(id)->second.m_path.generic_string(),
 				id,
 				resource_type.get_name().data());
 
-			if (success)
+			if (opt_data.has_value())
 			{
 				//- Note, id and path are assigned by the resource manager
-				entry.m_data = std::move(data);
+				entry.m_data = std::move(opt_data);
 				entry.m_state = resource_state_finished;
 
 				log.info(text.c_str());
@@ -188,7 +183,7 @@ namespace kokoro
 			//- Check if an unload was scheduled for this resource, and if so, perform it here
 			if (m_pending_unload.count(id) > 0)
 			{
-				TType::unload(entry.m_data);
+				TType::unload(entry.m_data.value());
 				m_entries.erase(id);
 				m_pending_unload.erase(id);
 			}

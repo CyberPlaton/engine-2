@@ -14,12 +14,12 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	std::pair<bool, seffect> seffect::load(const rttr::variant& snapshot)
+	std::optional<seffect> seffect::load(const rttr::variant& snapshot)
 	{
 		if (!snapshot.is_valid())
 		{
 			instance().service<clog_service>().err("seffect::load - received invalid snapshot variant");
-			return { false, {} };
+			return std::nullopt;
 		}
 
 		const auto& snaps = snapshot.get_value<seffect_snapshot>();
@@ -74,14 +74,14 @@ namespace kokoro
 				{
 					log.err(fmt::format("seffect::load - could not find fx file '{}'",
 						snaps.m_vs.m_filepath_or_name).c_str());
-					return { false, {} };
+					return std::nullopt;
 				}
 			}
 
 			auto file_mem = load_file(fx_filepath);
 			if (!file_mem)
 			{
-				return { false, {} };
+				return std::nullopt;
 			}
 
 			ceffect_parser parser(file_mem->data());
@@ -91,7 +91,7 @@ namespace kokoro
 			{
 				log.err(fmt::format("seffect::load - parser produced empty output for '{}'",
 					fx_filepath.generic_string()).c_str());
-				return { false, {} };
+				return std::nullopt;
 			}
 
 			{
@@ -187,7 +187,7 @@ namespace kokoro
 		//- Validate both compilations succeeded before touching bgfx
 		if (!vs_mem || !ps_mem)
 		{
-			return { false, {} };
+			return std::nullopt;
 		}
 
 		//- Phase 2: create all bgfx objects together.
@@ -201,7 +201,7 @@ namespace kokoro
 		{
 			log.err("seffect::load - bgfx::createShader returned invalid handle");
 			seffect::unload(effect);
-			return { false, {} };
+			return std::nullopt;
 		}
 
 		effect.m_program = bgfx::createProgram(effect.m_vs.m_handle, effect.m_ps.m_handle);
@@ -210,10 +210,10 @@ namespace kokoro
 		{
 			log.err("seffect::load - bgfx::createProgram returned invalid handle");
 			seffect::unload(effect);
-			return { false, {} };
+			return std::nullopt;
 		}
 
-		return { true, effect };
+		return std::move(effect);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

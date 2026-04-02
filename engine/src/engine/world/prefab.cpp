@@ -1,11 +1,12 @@
 #include <engine/world/prefab.hpp>
 #include <core/hash.hpp>
 #include <core/mutex.hpp>
-#include <engine/world/world.hpp>
+#include <engine/components/common.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <engine/services/command_service.hpp>
 #include <engine/services/log_service.hpp>
 #include <engine/commands/update_component_command.hpp>
+#include <engine/world/world.hpp>
 #include <engine.hpp>
 #include <fmt.h>
 
@@ -20,10 +21,15 @@ namespace kokoro
 			std::unordered_map<std::string, filepath_t> paths;
 
 			//------------------------------------------------------------------------------------------------------------------------
-			void create_entity_recursive(sworld& w, const sscene::sentity& e, const core::cuuid& parent_uuid)
+			void create_entity_recursive(cview<cworld> w, const sscene::sentity& e, const core::cuuid& parent_uuid)
 			{
-				auto flecs_entity = entity::create(w, e.m_name, e.m_uuid, parent_uuid.string());
-				auto uuid = flecs_entity.get<components::sidentifier>()->m_uuid;
+				if (!w.valid())
+				{
+					return;
+				}
+
+				auto flecs_entity = w.get().entity_manager().create(e.m_name, e.m_uuid, parent_uuid.string());
+				auto uuid = flecs_entity.get<component::sidentifier>()->m_uuid;
 
 				//- Set components as they are defined in prefab
 				for (const auto& c : e.m_comps)
@@ -82,8 +88,13 @@ namespace kokoro
 
 			//- Note: we do not resolve the filepath using VFS  on purpose, this is the responsibility of the caller
 			//------------------------------------------------------------------------------------------------------------------------
-			core::cuuid create(sworld* w, std::string_view filepath, std::optional<sconfig> cfg /*= std::nullopt*/)
+			core::cuuid create(cview<cworld> w, std::string_view filepath, std::optional<sconfig> cfg /*= std::nullopt*/)
 			{
+				if (!w.valid())
+				{
+					return {};
+				}
+
 				auto& vfs = instance().service<cvirtual_filesystem_service>();
 
 				if (auto file = vfs.open(filepath, file_options_read | file_options_text); file.opened())
@@ -101,7 +112,7 @@ namespace kokoro
 							{
 								auto& cs = cengine::instance().service<ccommand_system_service>();
 								{
-									components::sprefab c;
+									component::sprefab c;
 									c.m_filepath = filepath;
 									cs.push<command::cupdate_component_command>(w, uuid.string(), std::move(rttr::variant(c)));
 								}
@@ -118,41 +129,46 @@ namespace kokoro
 			}
 
 			//------------------------------------------------------------------------------------------------------------------------
-			core::cuuid create(sworld* w, const sscene& data, std::optional<sconfig> cfg /*= std::nullopt*/)
+			core::cuuid create(cview<cworld> w, const sscene& data, std::optional<sconfig> cfg /*= std::nullopt*/)
 			{
-				//- Create root entity that is designated as the prefab
-				auto root = entity::create(*w, data.m_name, {}, {}, true);
-				auto uuid = root.get<components::sidentifier>()->m_uuid;
-
-				for (const auto& e : data.m_entities)
+				if (w.valid())
 				{
-					create_entity_recursive(*w, e, uuid);
-				}
+					//- Create root entity that is designated as the prefab
+					auto root = w.get().entity_manager().create(data.m_name, {}, {}, true);
+					auto uuid = root.get<component::sidentifier>()->m_uuid;
 
-				core::cscoped_mutex m(mutex);
-				cache[uuid.string()] = root;
-				return uuid;
+					for (const auto& e : data.m_entities)
+					{
+						create_entity_recursive(w, e, uuid);
+					}
+
+					core::cscoped_mutex m(mutex);
+					cache[uuid.string()] = root;
+					return uuid;
+				}
+				return {};
 			}
 
 			//------------------------------------------------------------------------------------------------------------------------
-			void destroy(sworld* w, const core::cuuid& uuid)
+			void destroy(cview<cworld> w, const core::cuuid& uuid)
 			{
-				if (const auto it = cache.find(uuid.string()); it != cache.end())
-				{
-					entity::kill(*w, it->first);
+				core::cscoped_mutex m(mutex);
 
-					core::cscoped_mutex m(mutex);
+				if (const auto it = cache.find(uuid.string()); it != cache.end() && w.valid())
+				{
+					w.get().entity_manager().kill(uuid.string());
 					cache.erase(it);
 				}
 			}
 
 			//------------------------------------------------------------------------------------------------------------------------
-			void cleanup(sworld* w)
+			void cleanup(cview<cworld> w)
 			{
 				core::cscoped_mutex m(mutex);
+
 				for (const auto& [uuid, _] : cache)
 				{
-					entity::kill(*w, uuid);
+					w.get().entity_manager().kill(uuid);
 				}
 				cache.clear();
 			}

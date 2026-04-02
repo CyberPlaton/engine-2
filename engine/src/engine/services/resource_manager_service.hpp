@@ -55,8 +55,8 @@ namespace kokoro
 	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
 	cresource_manager_service& cresource_manager_service::new_manager()
 	{
-		static_assert(std::is_copy_constructible_v<TResource> && std::is_copy_constructible_v<TSnapshot>,
-			"Resource and snapshot types must be copy-constructible");
+		static_assert(std::is_move_constructible_v<TResource> && std::is_move_assignable_v<TResource>,
+			"Resource type must be move-constructible and move-assignable");
 
 		const auto resource_type = rttr::type::get<TResource>();
 		const auto snapshot_type = rttr::type::get<TSnapshot>();
@@ -158,7 +158,7 @@ namespace kokoro
 				return;
 			}
 
-			TResource::unload(resource.m_data);
+			TResource::unload(resource.m_data.value());
 			c->m_entries.erase(it);
 		}
 	}
@@ -213,10 +213,10 @@ namespace kokoro
 			{
 				//- Perform the actual loading of the resource. Success indicates whether the loading
 				//- was in order and we can proceed storing the resource
-				auto [success, data] = TResource::load(snaps);
+				auto opt_data = TResource::load(snaps);
 
 				core::cscoped_mutex m(c->m_mutex);
-				c->m_pending_load.push({ success, id, std::move(data) });
+				c->m_pending_load.push({ id, std::move(opt_data) });
 
 				instance().service<clog_service>().debug(fmt::format("Resource moved to pending load '{} (id={}, type={})'",
 					path.generic_string(),

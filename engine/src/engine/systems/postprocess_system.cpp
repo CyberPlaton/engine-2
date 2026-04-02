@@ -96,15 +96,15 @@ namespace kokoro
 	} //- unnamed
 
 	//------------------------------------------------------------------------------------------------------------------------
-	spostprocess_submit_system::spostprocess_submit_system(kokoro::world::sworld& w)
+	spostprocess_submit_system::spostprocess_submit_system(kokoro::cworld* w)
 	{
-		kokoro::world::modules::create_task(w, config(), postprocess_submit_system);
+		w->system_manager().create_task(config(), postprocess_submit_system);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	spostprocess_gather_system::spostprocess_gather_system(kokoro::world::sworld& w)
+	spostprocess_gather_system::spostprocess_gather_system(kokoro::cworld* w)
 	{
-		kokoro::world::modules::create_system(w, config(), postprocess_gather_system);
+		w->system_manager().create_system(config(), postprocess_gather_system);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
