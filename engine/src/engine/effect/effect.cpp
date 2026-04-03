@@ -240,16 +240,20 @@ RTTR_REGISTRATION
 {
 	using namespace kokoro;
 
+	//------------------------------------------------------------------------------------------------------------------------
 	rttr::registration::enumeration<seffect_snapshot::type>("seffect_snapshot::type")
 		(
 			rttr::value("type_none", seffect_snapshot::type_none),
 			rttr::value("type_file", seffect_snapshot::type_file),
 			rttr::value("type_embedded", seffect_snapshot::type_embedded)
 		);
+
+	//------------------------------------------------------------------------------------------------------------------------
 	rttr::cregistrator<seffect_snapshot::sshader>("seffect_snapshot::sshader")
 		.prop("m_filepath_or_name", &seffect_snapshot::sshader::m_filepath_or_name)
 		.prop("m_type", &seffect_snapshot::sshader::m_type);
 
+	//------------------------------------------------------------------------------------------------------------------------
 	rttr::cregistrator<seffect_snapshot>("seffect_snapshot")
 		.prop("m_vs", &seffect_snapshot::m_vs)
 		.prop("m_ps", &seffect_snapshot::m_ps);

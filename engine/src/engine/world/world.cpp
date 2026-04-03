@@ -257,6 +257,7 @@ namespace kokoro
 				return std::move(world);
 			}
 		}
+		return std::nullopt;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -585,6 +586,10 @@ namespace kokoro
 RTTR_REGISTRATION
 {
 	using namespace kokoro;
+
+	//------------------------------------------------------------------------------------------------------------------------
+	rttr::cregistrator<sworld_snapshot>("sworld_snapshot")
+		.prop("m_fielpath", &sworld_snapshot::m_filepath);
 
 	//------------------------------------------------------------------------------------------------------------------------
 	rttr::cregistrator<cworld::sconfig>("cworld::sconfig")

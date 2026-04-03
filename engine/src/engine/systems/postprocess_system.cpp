@@ -204,6 +204,7 @@ namespace kokoro
 RTTR_REGISTRATION
 {
 	using namespace kokoro;
+
 	REGISTER_SYSTEM(spostprocess_gather_system);
 	REGISTER_SYSTEM(spostprocess_submit_system);
 }

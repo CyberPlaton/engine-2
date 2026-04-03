@@ -100,16 +100,19 @@ RTTR_REGISTRATION
 	rttr::detail::default_constructor<std::vector<suniform>>();
 	rttr::detail::default_constructor<std::vector<smaterial_snapshot::ssampler_texture>>();
 
+	//------------------------------------------------------------------------------------------------------------------------
 	rttr::cregistrator<suniform>("suniform")
 		.prop("m_name", &suniform::m_name)
 		.prop("m_data", &suniform::m_data)
 		.prop("m_type", &suniform::m_type);
 
+	//------------------------------------------------------------------------------------------------------------------------
 	rttr::cregistrator<smaterial_snapshot::ssampler_texture>("smaterial_snapshot::ssampler_texture")
 		.prop("m_sampler_stage", &smaterial_snapshot::ssampler_texture::m_sampler_stage)
 		.prop("m_sampler_flags", &smaterial_snapshot::ssampler_texture::m_sampler_flags)
 		.prop("m_texture", &smaterial_snapshot::ssampler_texture::m_texture);
 
+	//------------------------------------------------------------------------------------------------------------------------
 	rttr::cregistrator<smaterial_snapshot>("smaterial_snapshot")
 		.prop("m_state", &smaterial_snapshot::m_state)
 		.prop("m_blending", &smaterial_snapshot::m_blending)
