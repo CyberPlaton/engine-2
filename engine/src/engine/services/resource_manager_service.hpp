@@ -8,6 +8,7 @@
 #include <engine.hpp>
 #include <fmt.h>
 #include <rttr.h>
+#include <atomic>
 
 namespace kokoro
 {
@@ -26,8 +27,10 @@ namespace kokoro
 		void							update(float);
 		template<typename TResource>
 		cview<TResource>				load(filepath_t path);
+		template<typename TResource, typename TSnapshot>
+		cview<TResource>				load(const TSnapshot& snapshot);
 		template<typename TResource>
-		void							unload(filepath_t path);
+		void							unload(resource_id_t id);
 		template<typename TResource>
 		rttr::variant					snapshot(filepath_t path);
 
@@ -37,7 +40,31 @@ namespace kokoro
 			std::unique_ptr<icache> m_cache = nullptr;
 			rttr::type m_resource_type;
 			rttr::type m_snapshot_type;
+			std::atomic<uint64_t> m_next_id = 0;
 			const bool m_unique_instances = true;
+
+			sresource_cache_desc(std::unique_ptr<icache>&& cache, rttr::type resource_type,
+				rttr::type snapshot_type, uint64_t next_id, bool unique_instances) :
+				m_cache(std::move(cache)),
+				m_resource_type(resource_type),
+				m_snapshot_type(snapshot_type),
+				m_next_id(next_id),
+				m_unique_instances(unique_instances)
+			{
+			}
+
+			sresource_cache_desc(sresource_cache_desc&& other) noexcept :
+				m_cache(std::move(other.m_cache)),
+				m_resource_type(other.m_resource_type),
+				m_snapshot_type(other.m_snapshot_type),
+				m_next_id(other.m_next_id.load(std::memory_order_relaxed)),
+				m_unique_instances(other.m_unique_instances)
+			{
+			}
+
+			sresource_cache_desc& operator=(sresource_cache_desc&&) = delete;
+			sresource_cache_desc(const sresource_cache_desc&) = delete;
+			sresource_cache_desc& operator=(const sresource_cache_desc&) = delete;
 		};
 
 		mutable core::cmutex m_mutex;
@@ -48,6 +75,8 @@ namespace kokoro
 		const sresource_cache_desc&		cache_desc(resource_type_id_t type_id) const;
 		template<typename TResource>
 		ccache<TResource>*				cache();
+		template<typename TResource>
+		uint64_t						acquire_id();
 	};
 
 	//- Create a new manager type for resource and snapshot types. Not thread-safe and should be done once on start up.
@@ -64,9 +93,10 @@ namespace kokoro
 
 		sresource_cache_desc desc
 		{
-			std::make_unique<ccache<TResource>>(),
+			std::move(std::make_unique<ccache<TResource>>()),
 			resource_type,
 			snapshot_type,
+			0,
 			C_UNIQUE_INSTANCES
 		};
 
@@ -140,10 +170,17 @@ namespace kokoro
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TResource>
-	void cresource_manager_service::unload(filepath_t path)
+	uint64_t cresource_manager_service::acquire_id()
 	{
-		//- FIXME: something else for IDs needed, otherwise we cant have multiple instances from same file
-		const auto id = core::hash(path.generic_string());
+		const auto type_id = rttr::type::get<TResource>().get_id();
+		auto& desc = m_cache_descs.at(type_id);
+		return desc.m_next_id.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TResource>
+	void cresource_manager_service::unload(resource_id_t id)
+	{
 		auto* c = cache<TResource>();
 
 		core::cscoped_mutex m(c->m_mutex);
@@ -167,8 +204,7 @@ namespace kokoro
 	template<typename TResource>
 	cview<TResource> cresource_manager_service::load(filepath_t path)
 	{
-		//- FIXME: something else for IDs needed, otherwise we cant have multiple instances from same file
-		const auto id = core::hash(path.generic_string());
+		const auto id = acquire_id<TResource>();
 		const auto resource_type = rttr::type::get<TResource>();
 		const auto type_id = resource_type.get_id();
 		const auto& desc = cache_desc(type_id);
@@ -220,6 +256,63 @@ namespace kokoro
 
 				instance().service<clog_service>().debug(fmt::format("Resource moved to pending load '{} (id={}, type={})'",
 					path.generic_string(),
+					id,
+					resource_type.get_name().data()).c_str());
+			});
+
+		return cview<TResource>(id, c);
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TResource, typename TSnapshot>
+	cview<TResource> cresource_manager_service::load(const TSnapshot& snapshot)
+	{
+		const auto id = acquire_id<TResource>();
+		const auto resource_type = rttr::type::get<TResource>();
+		const auto type_id = resource_type.get_id();
+		const auto& desc = cache_desc(type_id);
+
+		instance().service<clog_service>().debug(fmt::format("Loading resource from snapshot '(id={}, type={})'",
+			id,
+			resource_type.get_name().data()).c_str());
+
+		auto* c = cache<TResource>();
+
+		//- When we are not having unique instances, we want to check for existing resource and return it instead of loading anew
+		if (!desc.m_unique_instances)
+		{
+			core::cscoped_mutex m(c->m_mutex);
+
+			if (const auto it = c->m_entries.find(id); it != c->m_entries.end())
+			{
+				return cview<TResource>(id, c);
+			}
+		}
+
+		//- Immediately insert pending entry
+		{
+			core::cscoped_mutex m(c->m_mutex);
+			auto& entry = c->m_entries[id];
+			entry.m_id = id;
+			entry.m_state = resource_state_pending;
+
+			instance().service<clog_service>().debug(fmt::format("Inserting pending snapshot resource entry '(id={}, type={})'",
+				id,
+				resource_type.get_name().data()).c_str());
+		}
+
+		//- Create a task for loading the resource
+		instance().service<cthread_service>().async(fmt::format("load from snapshot '{}'", id),
+			[c, id, snaps = std::move(rttr::variant(snapshot)), resource_type = resource_type]()
+			{
+				//- Perform the actual loading of the resource. Success indicates whether the loading
+				//- was in order and we can proceed storing the resource
+				auto opt_data = TResource::load(snaps);
+
+				core::cscoped_mutex m(c->m_mutex);
+				c->m_pending_load.push({ id, std::move(opt_data) });
+
+				instance().service<clog_service>().debug(fmt::format("Resource moved to pending load '(id={}, type={})'",
 					id,
 					resource_type.get_name().data()).c_str());
 			});

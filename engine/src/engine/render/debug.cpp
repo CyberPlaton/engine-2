@@ -38,7 +38,7 @@ namespace kokoro
 	void cdebug_drawer::shutdown()
 	{
 		auto& rms = instance().service<cresource_manager_service>();
-		rms.unload<seffect>(m_state.m_effect.path());
+		rms.unload<seffect>(m_state.m_effect.id());
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

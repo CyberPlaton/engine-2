@@ -73,12 +73,12 @@ namespace kokoro
 	{
 		auto& rms = instance().service<cresource_manager_service>();
 
-		rms.unload<seffect>(material.m_effect.path());
+		rms.unload<seffect>(material.m_effect.id());
 
 		for (auto i = 0; i < material.m_sampler_textures.size(); ++i)
 		{
 			auto& t = material.m_sampler_textures[i];
-			rms.unload<stexture>(t.m_texture.path());
+			rms.unload<stexture>(t.m_texture.id());
 		}
 
 		//- Destroy the uniforms the material was using

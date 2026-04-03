@@ -23,7 +23,7 @@ void cgame::post_init()
 void cgame::shutdown()
 {
 	m_dd.shutdown();
-	kokoro::instance().service<kokoro::cresource_manager_service>().unload<kokoro::cworld>("engine/worlds/sample.world");
+	kokoro::instance().service<kokoro::cresource_manager_service>().unload<kokoro::cworld>(m_world.id());
 }
 
 //------------------------------------------------------------------------------------------------------------------------
