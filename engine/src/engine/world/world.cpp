@@ -7,6 +7,7 @@
 #include <engine/components/viewport.hpp>
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <engine/services/resource_manager_service.hpp>
+#include <engine/services/thread_service.hpp>
 #include <engine/services/log_service.hpp>
 #include <engine.hpp>
 #include <core/io.hpp>
@@ -430,7 +431,7 @@ namespace kokoro
 	void cworld::from_snapshot(const sworld_snapshot& snaps)
 	{
 		//- Apply world configuration
-		m_world.set_threads(static_cast<int>(snaps.m_cfg.m_threads));
+		m_world.set_threads(static_cast<int>(snaps.m_cfg.m_threads > 0 ? snaps.m_cfg.m_threads : std::thread::hardware_concurrency() / 2u));
 		import_modules(snaps.m_cfg.m_modules);
 
 		//- Create entities from the scene snapshot
