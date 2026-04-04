@@ -33,4 +33,24 @@ namespace kokoro
 		}
 	}
 
+	//------------------------------------------------------------------------------------------------------------------------
+	cresource_manager_service::sresource_cache_desc::sresource_cache_desc(std::unique_ptr<icache>&& cache, rttr::type resource_type, rttr::type snapshot_type, uint64_t next_id, bool unique_instances) :
+		m_cache(std::move(cache)),
+		m_resource_type(resource_type),
+		m_snapshot_type(snapshot_type),
+		m_next_id(next_id),
+		m_unique_instances(unique_instances)
+	{
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	cresource_manager_service::sresource_cache_desc::sresource_cache_desc(sresource_cache_desc&& other) noexcept :
+		m_cache(std::move(other.m_cache)),
+		m_resource_type(other.m_resource_type),
+		m_snapshot_type(other.m_snapshot_type),
+		m_next_id(other.m_next_id.load(std::memory_order_relaxed)),
+		m_unique_instances(other.m_unique_instances)
+	{
+	}
+
 } //- kokoro

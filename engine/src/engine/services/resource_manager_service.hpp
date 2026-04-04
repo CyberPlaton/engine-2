@@ -27,44 +27,30 @@ namespace kokoro
 		void							update(float);
 		template<typename TResource>
 		cview<TResource>				load(filepath_t path);
+
 		template<typename TResource, typename TSnapshot>
 		cview<TResource>				load(const TSnapshot& snapshot);
+
 		template<typename TResource>
 		void							unload(resource_id_t id);
+
 		template<typename TResource>
 		rttr::variant					snapshot(filepath_t path);
 
 	private:
 		struct sresource_cache_desc
 		{
+			sresource_cache_desc(std::unique_ptr<icache>&& cache, rttr::type resource_type, rttr::type snapshot_type, uint64_t next_id, bool unique_instances);
+			sresource_cache_desc(sresource_cache_desc&& other) noexcept;
+			sresource_cache_desc& operator=(sresource_cache_desc&&) = delete;
+			sresource_cache_desc(const sresource_cache_desc&) = delete;
+			sresource_cache_desc& operator=(const sresource_cache_desc&) = delete;
+
 			std::unique_ptr<icache> m_cache = nullptr;
 			rttr::type m_resource_type;
 			rttr::type m_snapshot_type;
 			std::atomic<uint64_t> m_next_id = 0;
 			const bool m_unique_instances = true;
-
-			sresource_cache_desc(std::unique_ptr<icache>&& cache, rttr::type resource_type,
-				rttr::type snapshot_type, uint64_t next_id, bool unique_instances) :
-				m_cache(std::move(cache)),
-				m_resource_type(resource_type),
-				m_snapshot_type(snapshot_type),
-				m_next_id(next_id),
-				m_unique_instances(unique_instances)
-			{
-			}
-
-			sresource_cache_desc(sresource_cache_desc&& other) noexcept :
-				m_cache(std::move(other.m_cache)),
-				m_resource_type(other.m_resource_type),
-				m_snapshot_type(other.m_snapshot_type),
-				m_next_id(other.m_next_id.load(std::memory_order_relaxed)),
-				m_unique_instances(other.m_unique_instances)
-			{
-			}
-
-			sresource_cache_desc& operator=(sresource_cache_desc&&) = delete;
-			sresource_cache_desc(const sresource_cache_desc&) = delete;
-			sresource_cache_desc& operator=(const sresource_cache_desc&) = delete;
 		};
 
 		mutable core::cmutex m_mutex;
@@ -120,10 +106,6 @@ namespace kokoro
 			{
 				path = value;
 			}
-			else
-			{
-				instance().service<clog_service>().err(fmt::format("Could not find resource snapshot file at '{}'", path.generic_string()).c_str());
-			}
 		}
 
 		//- Try to resolve the snapshot before loading and deserializing
@@ -144,8 +126,10 @@ namespace kokoro
 			{
 				const auto resource_type = rttr::type::get<TResource>();
 				const auto type_id = resource_type.get_id();
+				const auto& desc = cache_desc(type_id);
+				const auto& snapshot_type = desc.m_snapshot_type;
 
-				if (auto var = core::from_json_blob(m_cache_descs.at(type_id).m_snapshot_type, mem->data(), mem->size()); var.is_valid())
+				if (auto var = core::from_json_blob(snapshot_type, mem->data(), mem->size()); var.is_valid())
 				{
 					core::cscoped_mutex m(m_mutex);
 
@@ -234,17 +218,12 @@ namespace kokoro
 			entry.m_id = id;
 			entry.m_path = path;
 			entry.m_state = resource_state_pending;
-
-			instance().service<clog_service>().debug(fmt::format("Inserting pending resource entry '{} (id={}, type={})'",
-				path.generic_string(),
-				id,
-				resource_type.get_name().data()).c_str());
 		}
 
 		rttr::variant snaps = snapshot<TResource>(path);
 
 		//- Create a task for loading the resource
-		instance().service<cthread_service>().async(fmt::format("load '{}'", path.generic_u8string()),
+		instance().service<cthread_service>().async(fmt::format("load at path'{}'", path.generic_u8string()),
 			[c, id, snaps=std::move(snaps), path=path, resource_type= resource_type]()
 			{
 				//- Perform the actual loading of the resource. Success indicates whether the loading
@@ -253,11 +232,6 @@ namespace kokoro
 
 				core::cscoped_mutex m(c->m_mutex);
 				c->m_pending_load.push({ id, std::move(opt_data) });
-
-				instance().service<clog_service>().debug(fmt::format("Resource moved to pending load '{} (id={}, type={})'",
-					path.generic_string(),
-					id,
-					resource_type.get_name().data()).c_str());
 			});
 
 		return cview<TResource>(id, c);
@@ -272,7 +246,7 @@ namespace kokoro
 		const auto type_id = resource_type.get_id();
 		const auto& desc = cache_desc(type_id);
 
-		instance().service<clog_service>().debug(fmt::format("Loading resource from snapshot '(id={}, type={})'",
+		instance().service<clog_service>().debug(fmt::format("Loading resource '(id={}, type={})'",
 			id,
 			resource_type.get_name().data()).c_str());
 
@@ -295,10 +269,6 @@ namespace kokoro
 			auto& entry = c->m_entries[id];
 			entry.m_id = id;
 			entry.m_state = resource_state_pending;
-
-			instance().service<clog_service>().debug(fmt::format("Inserting pending snapshot resource entry '(id={}, type={})'",
-				id,
-				resource_type.get_name().data()).c_str());
 		}
 
 		//- Create a task for loading the resource
@@ -311,10 +281,6 @@ namespace kokoro
 
 				core::cscoped_mutex m(c->m_mutex);
 				c->m_pending_load.push({ id, std::move(opt_data) });
-
-				instance().service<clog_service>().debug(fmt::format("Resource moved to pending load '(id={}, type={})'",
-					id,
-					resource_type.get_name().data()).c_str());
 			});
 
 		return cview<TResource>(id, c);
