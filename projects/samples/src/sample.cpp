@@ -3,7 +3,9 @@
 #include <engine/services/window_service.hpp>
 #include <engine/services/world_service.hpp>
 #include <engine/components/postprocess_volume.hpp>
+#include <engine/effect/embedded_shaders.hpp>
 #include <engine.hpp>
+#include <fmt.h>
 
 //------------------------------------------------------------------------------------------------------------------------
 bool cgame::init()
@@ -19,14 +21,32 @@ void cgame::post_init()
 	world.m_cfg.m_threads = 0;
 	world.m_cfg.m_modules = { "srender_module" };
 
+	std::array<std::string_view, 11> postprocess_names =
 	{
+		"bloom",
+		"blur",
+		"chromatic_aberration",
+		"filmgrain",
+		"grayscale",
+		"invert",
+		"posterize",
+		"scanlines",
+		"sepia",
+		"sharpen",
+		"vignette"
+	};
+
+	for (auto i = 0; i < 11; ++i)
+	{
+		const auto name = fmt::format("post process #{}", i);
+
 		auto& e = world.m_scene.m_entities.emplace_back();
-		e.m_name = "post process";
+		e.m_name = name;
 
 		{
 			kokoro::spostprocess_snapshot postprocess;
-			postprocess.m_name = "post process";
-			postprocess.m_effect = "engine/postprocesses/sepia.effect";
+			postprocess.m_name = name;
+			postprocess.m_effect = fmt::format("engine/postprocesses/{}.effect", postprocess_names[i]);
 			postprocess.m_blending = kokoro::spostprocess::C_POSTPROCESS_BLEND_DEFAULT;
 			postprocess.m_state = kokoro::spostprocess::C_POSTPROCESS_STATE_DEFAULT;
 			postprocess.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Equal;

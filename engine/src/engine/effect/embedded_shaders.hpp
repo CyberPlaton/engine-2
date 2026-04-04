@@ -5,17 +5,18 @@
 ENTRY(vs_default) \
 ENTRY(vs_postprocess) \
 ENTRY(ps_default) \
-ENTRY(ps_postprocess_sepia) \
-ENTRY(ps_postprocess_blur) \
-ENTRY(ps_postprocess_grayscale) \
-ENTRY(ps_postprocess_vignette) \
-ENTRY(ps_postprocess_filmgrain) \
-ENTRY(ps_postprocess_chromatic_aberration) \
-ENTRY(ps_postprocess_bloom) \
-ENTRY(ps_postprocess_scanlines) \
-ENTRY(ps_postprocess_sharpen) \
-ENTRY(ps_postprocess_posterize) \
-ENTRY(ps_postprocess_invert)
+ENTRY(ps_sepia) \
+ENTRY(ps_blur) \
+ENTRY(ps_grayscale) \
+ENTRY(ps_vignette) \
+ENTRY(ps_filmgrain) \
+ENTRY(ps_chromatic_aberration) \
+ENTRY(ps_bloom) \
+ENTRY(ps_scanlines) \
+ENTRY(ps_sharpen) \
+ENTRY(ps_posterize) \
+ENTRY(ps_invert) \
+ENTRY(ps_count)
 
 namespace kokoro
 {
