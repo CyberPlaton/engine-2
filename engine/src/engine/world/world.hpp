@@ -10,21 +10,13 @@
 #include <nlohmann.h>
 #include <string_view>
 #include <optional>
+#include <memory>
 
 namespace kokoro
 {
-	//------------------------------------------------------------------------------------------------------------------------
-	struct sworld_snapshot final
+	namespace world
 	{
-		std::string m_filepath;
-	};
-
-	//------------------------------------------------------------------------------------------------------------------------
-	class cworld
-	{
-	public:
 		using world_flags_t = int;
-		using entities_t = std::vector<flecs::entity>;
 
 		enum world_flag : uint8_t
 		{
@@ -35,6 +27,7 @@ namespace kokoro
 
 		//- Configuration of the world to be created. Note that plugins and modules do not need to be set, but are rather
 		//- automatically provided from the engine.
+		//------------------------------------------------------------------------------------------------------------------------
 		struct sconfig final
 		{
 			std::vector<std::string> m_plugins;
@@ -45,25 +38,43 @@ namespace kokoro
 			RTTR_ENABLE();
 		};
 
+	} //- world
+
+	//- TODO: missing the serialized singletons here
+	//------------------------------------------------------------------------------------------------------------------------
+	struct sworld_snapshot final
+	{
+		world::sconfig m_cfg;
+		std::string m_name;
+		sscene m_scene;
+		RTTR_ENABLE();
+	};
+
+	//------------------------------------------------------------------------------------------------------------------------
+	class cworld
+	{
+	public:
+		using entities_t = std::vector<flecs::entity>;
+
 		static std::optional<cworld>	load(const rttr::variant& snapshot);
 		static void						unload(cworld& world);
 
 		cworld(std::string_view name);
-		cworld(std::string_view name, sconfig cfg);
+		cworld(std::string_view name, world::sconfig cfg);
 		cworld(cworld&&) = default;
 		cworld& operator=(cworld&&) = default;
 		cworld(const cworld&) = delete;
 		cworld& operator=(const cworld&) = delete;
 		~cworld();
 
-		inline auto&	singleton_manager() { return m_singleton_manager; }
-		inline auto&	system_manager() { return m_system_manager; }
-		inline auto&	query_manager() { return m_query_manager; }
-		inline auto&	entity_manager() { return m_entity_manager; }
-		inline auto		singleton_manager() const -> const auto& { return m_singleton_manager; }
-		inline auto		system_manager() const -> const auto& { return m_system_manager; }
-		inline auto		query_manager() const -> const auto& { return m_query_manager; }
-		inline auto		entity_manager() const -> const auto& { return m_entity_manager; }
+		inline auto&	singleton_manager() { return m_managers->m_singleton_manager; }
+		inline auto&	system_manager() { return m_managers->m_system_manager; }
+		inline auto&	query_manager() { return m_managers->m_query_manager; }
+		inline auto&	entity_manager() { return m_managers->m_entity_manager; }
+		inline auto		singleton_manager() const -> const auto& { return m_managers->m_singleton_manager; }
+		inline auto		system_manager() const -> const auto& { return m_managers->m_system_manager; }
+		inline auto		query_manager() const -> const auto& { return m_managers->m_query_manager; }
+		inline auto		entity_manager() const -> const auto& { return m_managers->m_entity_manager; }
 
 		void			import_modules(std::vector<std::string> modules);
 
@@ -72,6 +83,8 @@ namespace kokoro
 
 		//- Retrieve the scene representation for the given world
 		sscene			as_scene();
+		auto			as_snapshot() -> sworld_snapshot;
+		void			from_snapshot(const sworld_snapshot& snaps);
 
 		//- Calculate the visible are for the worlds main camera
 		math::aabb_t	visible_area(float width_scale = 1.0f, float height_scale = 1.0f);
@@ -81,20 +94,21 @@ namespace kokoro
 
 		void			tick(float dt);
 
-		bool			deserialize(const nlohmann::json& json);
-
-		auto			serialize() -> nlohmann::json;
-
-		auto			w() -> flecs::world& { return m_world; }
-		auto			w() const -> const flecs::world& { return m_world; }
+		inline auto		w() -> flecs::world& { return m_world; }
+		inline auto		w() const -> const flecs::world& { return m_world; }
 
 	private:
-		csingleton_manager m_singleton_manager;
-		csystem_manager m_system_manager;
-		cquery_manager m_query_manager;
-		centity_manager m_entity_manager;
+		struct smanagers
+		{
+			csingleton_manager m_singleton_manager;
+			csystem_manager m_system_manager;
+			cquery_manager m_query_manager;
+			centity_manager m_entity_manager;
+		};
+
+		std::unique_ptr<smanagers> m_managers;
 		flecs::world m_world;
-		sconfig m_cfg;
+		world::sconfig m_cfg;
 		std::string m_name;
 		world::change_tracker_t m_transform_tracker;	//- Change tracker for any transform changes for updating proxies
 

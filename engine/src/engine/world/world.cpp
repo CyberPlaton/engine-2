@@ -222,42 +222,10 @@ namespace kokoro
 		}
 
 		const auto& snaps = snapshot.get_value<sworld_snapshot>();
-		auto& vfs = instance().service<cvirtual_filesystem_service>();
 
-		filepath_t world_filepath = snaps.m_filepath;
-
-		if (!vfs.exists(world_filepath))
-		{
-			if (const auto [result, p] = vfs.resolve(world_filepath); result)
-			{
-				world_filepath = p;
-			}
-			else
-			{
-				log.err(fmt::format("cworld::load - could not find fx file '{}'",
-					snaps.m_filepath).c_str());
-				return std::nullopt;
-			}
-		}
-
-		if (auto file = vfs.open(world_filepath, file_options_read | file_options_text); file.opened())
-		{
-			auto mem = file.read_sync();
-			if (mem && !mem->empty())
-			{
-				auto j = nlohmann::json::parse(mem->data(), mem->data() + mem->size(), nullptr, false, true);
-
-				//- Before creating the world get minimal required data out of there
-				auto name = j["name"].get<std::string>();
-				auto cfg = core::from_json_object(rttr::type::get<cworld::sconfig>(), j["config"]).get_value<cworld::sconfig>();
-
-				cworld world(name, cfg);
-				world.deserialize(j);
-
-				return std::move(world);
-			}
-		}
-		return std::nullopt;
+		cworld new_world(snaps.m_name, snaps.m_cfg);
+		new_world.from_snapshot(snaps);
+		return std::move(new_world);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -268,12 +236,12 @@ namespace kokoro
 
 	//------------------------------------------------------------------------------------------------------------------------
 	cworld::cworld(std::string_view name) :
-		cworld(name, sconfig{})
+		cworld(name, world::sconfig{})
 	{
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	cworld::cworld(std::string_view name, sconfig cfg) :
+	cworld::cworld(std::string_view name, world::sconfig cfg) :
 		m_cfg(cfg),
 		m_name(name.data())
 	{
@@ -290,14 +258,15 @@ namespace kokoro
 		m_world.component<world::component::sworld_transform>();
 		m_world.component<world::component::spostprocess_volume>();
 
-		m_singleton_manager.world(&m_world);
-		m_system_manager.world(&m_world);
-		m_query_manager.world(&m_world);
-		m_entity_manager.world(&m_world);
-		m_singleton_manager.init();
-		m_system_manager.init();
-		m_query_manager.init();
-		m_entity_manager.init();
+		m_managers = std::make_unique<smanagers>();
+		singleton_manager().world(&m_world);
+		system_manager().world(&m_world);
+		query_manager().world(&m_world);
+		entity_manager().world(&m_world);
+		singleton_manager().init();
+		system_manager().init();
+		query_manager().init();
+		entity_manager().init();
 		m_transform_tracker = query_manager().change_tracker<world::component::slocal_transform>();
 	}
 
@@ -305,10 +274,14 @@ namespace kokoro
 	cworld::~cworld()
 	{
 		m_transform_tracker.reset();
-		m_singleton_manager.shutdown();
-		m_system_manager.shutdown();
-		m_query_manager.shutdown();
-		m_entity_manager.shutdown();
+		if (m_managers)
+		{
+			singleton_manager().shutdown();
+			system_manager().shutdown();
+			query_manager().shutdown();
+			entity_manager().shutdown();
+		}
+		m_managers.reset();
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -436,7 +409,7 @@ namespace kokoro
 		//- Because managers might need to complete work before we tick the world for a new update we split up in pre and post
 		query_manager().pre_tick();
 
-		m_world.progress(dt);
+		w().progress(dt);
 
 		if (auto t = m_transform_tracker.lock(); t) { t->tick(); }
 
@@ -444,77 +417,32 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	bool cworld::deserialize(const nlohmann::json& json)
+	auto cworld::as_snapshot() -> sworld_snapshot
 	{
-		//- Note, the name and configuration were already deserialized seeing as the world did get constructed
-
-		//- Apply configuration
-		{
-			m_world.set_threads(static_cast<int>(m_cfg.m_threads));
-			import_modules(m_cfg.m_modules);
-		}
-
-		//- Load singletons
-		{
-			const auto& j_singletons = json["singletons"];
-			for (const auto& j_singleton : j_singletons)
-			{
-				const auto type_name = j_singleton[core::C_OBJECT_TYPE_NAME].get<std::string>();
-
-				rttr::variant var;
-				invoke_static_function(rttr::type::get_by_name(type_name), "deserialize", var, j_singleton);
-
-				if (var.is_valid())
-				{
-					invoke_static_function(rttr::type::get_by_name(type_name), "set_singleton", *this, var);
-				}
-			}
-		}
-
-		//- Load scene and create the world entities
-		{
-			auto s = scene::deserialize(json);
-			for (const auto& e : s.m_entities)
-			{
-				scene_to_world_entity_rec(e, nullptr);
-			}
-		}
-
-		return true;
+		sworld_snapshot out;
+		out.m_name = m_name;
+		out.m_cfg = m_cfg;
+		out.m_scene = as_scene();
+		return out;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	auto cworld::serialize() -> nlohmann::json
+	void cworld::from_snapshot(const sworld_snapshot& snaps)
 	{
-		nlohmann::json j;
+		//- Apply world configuration
+		m_world.set_threads(static_cast<int>(snaps.m_cfg.m_threads));
+		import_modules(snaps.m_cfg.m_modules);
 
-		//- Convert the world to a scene and write to JSON
+		//- Create entities from the scene snapshot
+		for (const auto& e : snaps.m_scene.m_entities)
 		{
-			const auto scene = as_scene();
-			j["entities"] = nlohmann::json::object();
-			j["entities"] = scene::serialize(scene);
+			scene_to_world_entity_rec(e);
 		}
 
+		//- Create singletons and load their data
 		{
-			//- Continue serializing worlds singletons, modules and plugins
-			j["singletons"] = nlohmann::json::array();
 
-			auto i = 0;
-			for (const auto& ct : singleton_manager().all())
-			{
-				auto type = rttr::type::get_by_name(ct);
-
-				instance().service<clog_service>().trace("\tbegin to serialize singleton of type '{}'",
-					ct);
-
-				invoke_static_function(type, "serialize", invoke_static_function(type, "get_singleton", *this), j["singletons"][i++]);
-			}
-
-			j["config"] = core::to_json_object(m_cfg);
-			j["name"] = m_name;
 		}
-
-		return j;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -588,13 +516,15 @@ RTTR_REGISTRATION
 	using namespace kokoro;
 
 	//------------------------------------------------------------------------------------------------------------------------
-	rttr::cregistrator<sworld_snapshot>("sworld_snapshot")
-		.prop("m_fielpath", &sworld_snapshot::m_filepath);
+	rttr::cregistrator<world::sconfig>("world::sconfig")
+		.prop("m_plugins", &world::sconfig::m_plugins)
+		.prop("m_modules", &world::sconfig::m_modules)
+		.prop("m_threads", &world::sconfig::m_threads)
+		.prop("m_flags", &world::sconfig::m_flags);
 
 	//------------------------------------------------------------------------------------------------------------------------
-	rttr::cregistrator<cworld::sconfig>("cworld::sconfig")
-		.prop("m_plugins", &cworld::sconfig::m_plugins)
-		.prop("m_modules", &cworld::sconfig::m_modules)
-		.prop("m_threads", &cworld::sconfig::m_threads)
-		.prop("m_flags", &cworld::sconfig::m_flags);
+	rttr::cregistrator<sworld_snapshot>("sworld_snapshot")
+		.prop("m_cfg", &sworld_snapshot::m_cfg)
+		.prop("m_name", &sworld_snapshot::m_name)
+		.prop("m_scene", &sworld_snapshot::m_scene);
 }

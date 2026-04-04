@@ -29,7 +29,7 @@ namespace kokoro
 		cview<TResource>				load(filepath_t path);
 
 		template<typename TResource, typename TSnapshot>
-		cview<TResource>				load(const TSnapshot& snapshot);
+		cview<TResource>				load_from_snapshot(const TSnapshot& snapshot);
 
 		template<typename TResource>
 		void							unload(resource_id_t id);
@@ -49,7 +49,7 @@ namespace kokoro
 			std::unique_ptr<icache> m_cache = nullptr;
 			rttr::type m_resource_type;
 			rttr::type m_snapshot_type;
-			std::atomic<uint64_t> m_next_id = 0;
+			resource_id_t m_next_id = 0;
 			const bool m_unique_instances = true;
 		};
 
@@ -158,7 +158,10 @@ namespace kokoro
 	{
 		const auto type_id = rttr::type::get<TResource>().get_id();
 		auto& desc = m_cache_descs.at(type_id);
-		return desc.m_next_id.fetch_add(1, std::memory_order_relaxed);
+
+		auto* c = cache<TResource>();
+		core::cscoped_mutex m(c->m_mutex);
+		return ++desc.m_next_id;
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -239,7 +242,7 @@ namespace kokoro
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TResource, typename TSnapshot>
-	cview<TResource> cresource_manager_service::load(const TSnapshot& snapshot)
+	cview<TResource> cresource_manager_service::load_from_snapshot(const TSnapshot& snapshot)
 	{
 		const auto id = acquire_id<TResource>();
 		const auto resource_type = rttr::type::get<TResource>();

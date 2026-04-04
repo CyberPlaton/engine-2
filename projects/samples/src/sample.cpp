@@ -13,9 +13,13 @@ bool cgame::init()
 //------------------------------------------------------------------------------------------------------------------------
 void cgame::post_init()
 {
-	m_world = kokoro::instance().service<kokoro::cresource_manager_service>().load<kokoro::cworld>("engine/worlds/sample.world");
+	kokoro::sworld_snapshot world;
+	world.m_name = "sample";
+	world.m_cfg.m_threads = 0;
+	world.m_cfg.m_modules = { "srender_module" };
+
+	m_world = kokoro::instance().service<kokoro::cresource_manager_service>().load_from_snapshot<kokoro::cworld>(world);
 	kokoro::instance().service<kokoro::cworld_service>().promote(m_world);
-	m_world.get().import_modules({ "srender_module" });
 	m_dd.init();
 }
 
@@ -30,6 +34,11 @@ void cgame::shutdown()
 void cgame::update(float dt)
 {
 	auto active = kokoro::instance().service<kokoro::cworld_service>().active();
+	if (!active)
+	{
+		return;
+	}
+
 	active.get().tick(dt);
 
 	const auto& rs = kokoro::instance().service<kokoro::crender_service>();

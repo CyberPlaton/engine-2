@@ -48,7 +48,7 @@ namespace kokoro
 		m_cache(std::move(other.m_cache)),
 		m_resource_type(other.m_resource_type),
 		m_snapshot_type(other.m_snapshot_type),
-		m_next_id(other.m_next_id.load(std::memory_order_relaxed)),
+		m_next_id(other.m_next_id),
 		m_unique_instances(other.m_unique_instances)
 	{
 	}
