@@ -10,7 +10,7 @@
 namespace kokoro
 {
 	//------------------------------------------------------------------------------------------------------------------------
-	suniform create_uniform(const char* name, suniform::type type)
+	suniform create_uniform(const char* name, uniform_type_t type)
 	{
 		suniform output;
 		output.m_name = name;

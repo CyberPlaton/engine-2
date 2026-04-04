@@ -47,7 +47,7 @@ namespace kokoro
 						;
 
 					if (texture.m_handle = bgfx::createTexture2D((uint16_t)texture.m_image.m_width, (uint16_t)texture.m_image.m_height,
-						texture.m_image.m_numMips > 1, texture.m_image.m_numLayers, (bgfx::TextureFormat::Enum)texture.m_image.m_format,
+						texture.m_image.m_numMips > 1, texture.m_image.m_numLayers, (texture_format_t)texture.m_image.m_format,
 						C_TEXTURE_SAMPLER_FLAGS_DEFAULT, mem); bgfx::isValid(texture.m_handle))
 					{
 						return std::move(texture);

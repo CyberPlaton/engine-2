@@ -73,7 +73,7 @@ namespace kokoro
 
 		//- Create default uniforms
 		{
-			m_texture_chain_uniform = bgfx::createUniform("s_texture", suniform::type::Sampler);
+			m_texture_chain_uniform = bgfx::createUniform("s_texture", uniform_type_t::Sampler);
 		}
 
 		bgfx::setViewName(C_BACKBUFFER_PASS_ID, "Backbuffer");

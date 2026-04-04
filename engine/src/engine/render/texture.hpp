@@ -7,6 +7,8 @@
 
 namespace kokoro
 {
+	using texture_format_t = bgfx::TextureFormat::Enum;
+
 	//------------------------------------------------------------------------------------------------------------------------
 	struct stexture_snapshot final
 	{
@@ -18,8 +20,6 @@ namespace kokoro
 	{
 		static std::optional<stexture>	load(const rttr::variant& snapshot);
 		static void						unload(stexture& texture);
-
-		using format = bgfx::TextureFormat::Enum;
 
 		bimg::ImageContainer m_image;
 		bgfx::TextureHandle m_handle = BGFX_INVALID_HANDLE;

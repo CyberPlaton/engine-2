@@ -2,6 +2,7 @@
 #include <engine/services/render_service.hpp>
 #include <engine/services/window_service.hpp>
 #include <engine/services/world_service.hpp>
+#include <engine/components/postprocess_volume.hpp>
 #include <engine.hpp>
 
 //------------------------------------------------------------------------------------------------------------------------
@@ -17,6 +18,27 @@ void cgame::post_init()
 	world.m_name = "sample";
 	world.m_cfg.m_threads = 0;
 	world.m_cfg.m_modules = { "srender_module" };
+
+	{
+		auto& e = world.m_scene.m_entities.emplace_back();
+		e.m_name = "post process";
+
+		{
+			kokoro::spostprocess_snapshot postprocess;
+			postprocess.m_name = "post process";
+			postprocess.m_effect = "engine/postprocesses/sepia.effect";
+			postprocess.m_blending = kokoro::spostprocess::C_POSTPROCESS_BLEND_DEFAULT;
+			postprocess.m_state = kokoro::spostprocess::C_POSTPROCESS_STATE_DEFAULT;
+			postprocess.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Equal;
+
+			kokoro::world::component::spostprocess_volume comp;
+			comp.m_postprocess = kokoro::instance().service<kokoro::cresource_manager_service>().load_from_snapshot<kokoro::spostprocess>(postprocess);
+
+			auto& c = e.m_comps.emplace_back();
+			c.m_type_name = rttr::type::get<kokoro::world::component::spostprocess_volume>().get_name().data();
+			c.m_data = comp;
+		}
+	}
 
 	m_world = kokoro::instance().service<kokoro::cresource_manager_service>().load_from_snapshot<kokoro::cworld>(world);
 	kokoro::instance().service<kokoro::cworld_service>().promote(m_world);

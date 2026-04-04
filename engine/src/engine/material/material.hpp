@@ -6,14 +6,14 @@
 
 namespace kokoro
 {
+	using uniform_type_t = bgfx::UniformType::Enum;
+
 	//------------------------------------------------------------------------------------------------------------------------
 	struct suniform final
 	{
-		using type = bgfx::UniformType::Enum;
-
 		std::string m_name;
 		rttr::variant m_data;
-		type m_type = type::Count;
+		uniform_type_t m_type = uniform_type_t::Count;
 		bgfx::UniformHandle m_handle = BGFX_INVALID_HANDLE;
 	};
 
@@ -67,7 +67,7 @@ namespace kokoro
 		uint64_t m_state = C_MATERIAL_STATE_DEFAULT;
 	};
 
-	suniform			create_uniform(const char* name, suniform::type type);
+	suniform			create_uniform(const char* name, uniform_type_t type);
 	void				update_uniform(suniform& uniform, rttr::variant&& data);
 
 } //- kokoro

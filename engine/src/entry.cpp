@@ -11,6 +11,7 @@
 #include <engine/render/texture.hpp>
 #include <engine/material/material.hpp>
 #include <engine/effect/effect.hpp>
+#include <engine/postprocess/postprocess.hpp>
 #include <engine.hpp>
 
 namespace kokoro::entry
@@ -35,6 +36,7 @@ namespace kokoro::entry
 		auto& rms = e.service<cresource_manager_service>();
 		rms.new_manager<stexture, stexture_snapshot, false>()
 			.new_manager<seffect, seffect_snapshot, false>()
+			.new_manager<spostprocess, spostprocess_snapshot>()
 			.new_manager<smesh, smesh_snapshot>()
 			.new_manager<smaterial, smaterial_snapshot>()
 			.new_manager<cworld, sworld_snapshot>();

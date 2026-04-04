@@ -29,7 +29,7 @@ namespace kokoro
 		RTTR_ENABLE()
 	};
 
-	//- Given post process volumes in the world, this system gathers those that affect the current iamge and create a raw submission
+	//- Given post process volumes in the world, this system gathers those that affect the current image and create a raw submission
 	//- structure. From that an ordered submission structure is made. This ordered structure is executed as a chain and represents the final image.
 	//------------------------------------------------------------------------------------------------------------------------
 	struct spostprocess_gather_system final

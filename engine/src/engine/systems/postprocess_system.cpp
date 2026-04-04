@@ -110,8 +110,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void postprocess_gather_system(flecs::entity e, const world::component::spostprocess_volume& c)
 	{
-		if (!c.m_postprocess.ready() ||
-			!c.m_postprocess.get().m_effect.ready())
+		if (!c.m_postprocess.ready() || !c.m_postprocess.get().m_effect.ready())
 		{
 			return;
 		}
