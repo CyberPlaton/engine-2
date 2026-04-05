@@ -98,6 +98,8 @@ namespace kokoro
 	template<typename TResource>
 	rttr::variant cresource_manager_service::snapshot(filepath_t path)
 	{
+		CPU_ZONE;
+
 		//- Try resolving filepath using virtual file system
 		auto& vfs = instance().service<cvirtual_filesystem_service>();
 		if (!vfs.exists(path))
@@ -168,6 +170,8 @@ namespace kokoro
 	template<typename TResource>
 	void cresource_manager_service::unload(resource_id_t id)
 	{
+		CPU_ZONE;
+
 		auto* c = cache<TResource>();
 
 		core::cscoped_mutex m(c->m_mutex);
@@ -191,15 +195,14 @@ namespace kokoro
 	template<typename TResource>
 	cview<TResource> cresource_manager_service::load(filepath_t path)
 	{
+		CPU_ZONE;
+
 		const auto id = acquire_id<TResource>();
 		const auto resource_type = rttr::type::get<TResource>();
 		const auto type_id = resource_type.get_id();
 		const auto& desc = cache_desc(type_id);
 
-		instance().service<clog_service>().debug(fmt::format("Loading resource '{} (id={}, type={})'",
-			path.generic_string(),
-			id,
-			resource_type.get_name().data()).c_str());
+		log::debug("Starting to load resource '{} (id={}, type={})'", path.generic_string(), id, resource_type.get_name().data());
 
 		auto* c = cache<TResource>();
 
@@ -226,12 +229,17 @@ namespace kokoro
 		rttr::variant snaps = snapshot<TResource>(path);
 
 		//- Create a task for loading the resource
-		instance().service<cthread_service>().async(fmt::format("load at path'{}'", path.generic_u8string()),
+		instance().service<cthread_service>().async(fmt::format("load at path '{}'", path.generic_u8string()),
 			[c, id, snaps=std::move(snaps), path=path, resource_type= resource_type]()
 			{
 				//- Perform the actual loading of the resource. Success indicates whether the loading
 				//- was in order and we can proceed storing the resource
 				auto opt_data = TResource::load(snaps);
+
+				if (!opt_data.has_value())
+				{
+					log::err("Failed loading resource '{} (id={}, type={})'", path.generic_string(), id, resource_type.get_name().data());
+				}
 
 				core::cscoped_mutex m(c->m_mutex);
 				c->m_pending_load.push({ id, std::move(opt_data) });
@@ -244,14 +252,14 @@ namespace kokoro
 	template<typename TResource, typename TSnapshot>
 	cview<TResource> cresource_manager_service::load_from_snapshot(const TSnapshot& snapshot)
 	{
+		CPU_ZONE;
+
 		const auto id = acquire_id<TResource>();
 		const auto resource_type = rttr::type::get<TResource>();
 		const auto type_id = resource_type.get_id();
 		const auto& desc = cache_desc(type_id);
 
-		instance().service<clog_service>().debug(fmt::format("Loading resource '(id={}, type={})'",
-			id,
-			resource_type.get_name().data()).c_str());
+		log::debug("Starting to load resource from snapshot '(id={}, type={})'", id, resource_type.get_name().data());
 
 		auto* c = cache<TResource>();
 
@@ -281,6 +289,11 @@ namespace kokoro
 				//- Perform the actual loading of the resource. Success indicates whether the loading
 				//- was in order and we can proceed storing the resource
 				auto opt_data = TResource::load(snaps);
+
+				if (!opt_data.has_value())
+				{
+					log::err("Failed loading resource from snapshot '(id={}, type={})'", id, resource_type.get_name().data());
+				}
 
 				core::cscoped_mutex m(c->m_mutex);
 				c->m_pending_load.push({ id, std::move(opt_data) });

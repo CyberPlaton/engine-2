@@ -146,7 +146,6 @@ namespace kokoro
 	{
 		CPU_ZONE;
 
-		auto& log = instance().service<clog_service>();
 		const auto resource_type = rttr::type::get<TType>();
 
 		//- Function moves resources from pending to use-ready entries
@@ -157,25 +156,21 @@ namespace kokoro
 			auto& [id, opt_data] = m_pending_load.front();
 			auto& entry = m_entries.find(id)->second;
 
-			const auto text = fmt::format("{} resource '{} (id={}, type={})'",
-				opt_data.has_value() ? "Successfully loaded" : "Failed loading",
-				m_entries.find(id)->second.m_path.generic_string(),
-				id,
-				resource_type.get_name().data());
-
 			if (opt_data.has_value())
 			{
 				//- Note, id and path are assigned by the resource manager
 				entry.m_data = std::move(opt_data);
 				entry.m_state = resource_state_finished;
 
-				log.info(text.c_str());
+				log::info("Successfully loaded resource '{} (id={}, type={})'", entry.m_path.empty() ? "-/-" : entry.m_path.generic_string(),
+					id, resource_type.get_name().data());
 			}
 			else
 			{
 				entry.m_state = resource_state_failed;
 
-				log.err(text.c_str());
+				log::err("Failed loading resource '{} (id={}, type={})'", entry.m_path.empty() ? "-/-" : entry.m_path.generic_string(),
+					id, resource_type.get_name().data());
 			}
 
 			m_pending_load.pop();

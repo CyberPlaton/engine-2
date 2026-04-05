@@ -1,5 +1,6 @@
 #pragma once
 #include <engine/iservice.hpp>
+#include <engine.hpp>
 #include <cstdint>
 #include <memory>
 
@@ -63,5 +64,51 @@ namespace kokoro
 	private:
 		std::unique_ptr<ilog_writer> m_emitter = nullptr;
 	};
+
+	namespace log
+	{
+		//------------------------------------------------------------------------------------------------------------------------
+		template<typename... ARGS>
+		void	trace(const char* format, ARGS&&... args)
+		{
+			instance().service<clog_service>().trace(format, std::forward<ARGS>(args)...);
+		}
+
+		//------------------------------------------------------------------------------------------------------------------------
+		template<typename... ARGS>
+		void	debug(const char* format, ARGS&&... args)
+		{
+			instance().service<clog_service>().debug(format, std::forward<ARGS>(args)...);
+		}
+
+		//------------------------------------------------------------------------------------------------------------------------
+		template<typename... ARGS>
+		void	info(const char* format, ARGS&&... args)
+		{
+			instance().service<clog_service>().info(format, std::forward<ARGS>(args)...);
+		}
+
+		//------------------------------------------------------------------------------------------------------------------------
+		template<typename... ARGS>
+		void	warn(const char* format, ARGS&&... args)
+		{
+			instance().service<clog_service>().warn(format, std::forward<ARGS>(args)...);
+		}
+
+		//------------------------------------------------------------------------------------------------------------------------
+		template<typename... ARGS>
+		void	err(const char* format, ARGS&&... args)
+		{
+			instance().service<clog_service>().err(format, std::forward<ARGS>(args)...);
+		}
+
+		//------------------------------------------------------------------------------------------------------------------------
+		template<typename... ARGS>
+		void	critical(const char* format, ARGS&&... args)
+		{
+			instance().service<clog_service>().critical(format, std::forward<ARGS>(args)...);
+		}
+
+	} //- log
 
 } //- kokoro

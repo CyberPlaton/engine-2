@@ -32,7 +32,7 @@ namespace kokoro
 				return result;
 			}
 
-			proxy.m_query_key = qm->m_current_query_key;
+			proxy.m_query_key = static_cast<unsigned>(qm->m_current_query_key);
 
 			//- TODO: apply filters
 
@@ -89,7 +89,7 @@ namespace kokoro
 				return result;
 			}
 
-			proxy.m_query_key = qm->m_current_query_key;
+			proxy.m_query_key = static_cast<unsigned>(qm->m_current_query_key);
 
 			//- TODO: apply filters
 
@@ -336,7 +336,7 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	int cquery_manager::user_data_id(const flecs::entity& e) const
 	{
-		return core::hash(e.get<world::component::sidentifier>()->m_uuid.string());
+		return static_cast<int>(core::hash(e.get<world::component::sidentifier>()->m_uuid.string()));
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------

@@ -46,10 +46,12 @@ void cgame::post_init()
 		{
 			kokoro::spostprocess_snapshot postprocess;
 			postprocess.m_name = name;
-			postprocess.m_effect = fmt::format("engine/postprocesses/{}.effect", postprocess_names[i]);
-			postprocess.m_blending = kokoro::spostprocess::C_POSTPROCESS_BLEND_DEFAULT;
-			postprocess.m_state = kokoro::spostprocess::C_POSTPROCESS_STATE_DEFAULT;
-			postprocess.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Equal;
+
+			auto& subpass = postprocess.m_passes.emplace_back();
+			subpass.m_effect = fmt::format("engine/postprocesses/{}.effect", postprocess_names[i]);
+			subpass.m_blending = kokoro::spostprocess_subpass::C_BLEND_DEFAULT;
+			subpass.m_state = kokoro::spostprocess_subpass::C_STATE_DEFAULT;
+			subpass.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Equal;
 
 			kokoro::world::component::spostprocess_volume comp;
 			comp.m_postprocess = kokoro::instance().service<kokoro::cresource_manager_service>().load_from_snapshot<kokoro::spostprocess>(postprocess);

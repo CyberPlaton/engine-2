@@ -110,9 +110,18 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void postprocess_gather_system(flecs::entity e, const world::component::spostprocess_volume& c)
 	{
-		if (!c.m_postprocess.ready() || !c.m_postprocess.get().m_effect.ready())
+		//- Ensure the post process and all the subpasses are ready
+		if (!c.m_postprocess)
 		{
 			return;
+		}
+
+		for (const auto& subpass : c.m_postprocess.get().m_passes)
+		{
+			if (!subpass.m_effect)
+			{
+				return;
+			}
 		}
 
 		core::cscoped_mutex m(mutex);
@@ -127,61 +136,77 @@ namespace kokoro
 		{
 			return;
 		}
+
+		//- Ensure we are ready for executing post processes
+		auto& rs = instance().service<crender_service>();
+
+		if (!rs.merge_program(0) || !rs.merge_program(1))
+		{
+			raw_postprocesses.clear();
+			ordered_postprocesses.clear();
+			return;
+		}
+
 		ordered_postprocesses.clear();
 		sort_postprocesses(raw_postprocesses, ordered_postprocesses);
 		raw_postprocesses.clear();
 
 		//- Given ordered postprocesses, execute them
 		{
-			auto& rs = instance().service<crender_service>();
-			auto in_out = rs.geometry_framebuffer();
+			auto geometry_framebuffer = rs.geometry_framebuffer();
+			auto postprocess_counter = 0;
 
-			//- Execute the initial postprocess in the chain
+			for (auto i = 0; i < ordered_postprocesses.size(); ++i)
 			{
-				const auto& first = ordered_postprocesses[0]->m_postprocess.get();
+				auto& postprocess = ordered_postprocesses[i]->m_postprocess.get();
 
-				bgfx::setMarker(first.m_name.c_str());
-				bgfx::setViewFrameBuffer(C_POSTPROCESS_PASS_ID + 0, first.m_output_framebuffer);
-				bgfx::setViewClear(C_POSTPROCESS_PASS_ID + 0, BGFX_CLEAR_COLOR, 0xffffffff);
-				bgfx::setTexture(0, first.m_framebuffer_sampler.m_handle, bgfx::getTexture(in_out));
-				bgfx::setViewRect(C_POSTPROCESS_PASS_ID + 0, first.m_x, first.m_y, first.m_backbuffer_ratio);
-				bgfx::setState(first.m_state | first.m_blending);
-
-				rs.bind_builtin_uniforms();
-				rs.submit_screen_quad();
-				bgfx::submit(C_POSTPROCESS_PASS_ID + 0, first.m_effect.get().m_program);
-			}
-
-			//- Execute the chain of postprocesses up to the last, where i + 1 takes the output of i and works with that
-			{
-				for (auto i = 1; i < ordered_postprocesses.size(); ++i)
+				for (auto j = 0; j < postprocess.m_passes.size(); ++j)
 				{
-					const auto& previous = ordered_postprocesses[i - 1]->m_postprocess.get();
-					const auto& pp = ordered_postprocesses[i]->m_postprocess.get();
-					const auto view = bgfx::ViewId(C_POSTPROCESS_PASS_ID + i);
+					auto& subpass = postprocess.m_passes[j];
 
-					bgfx::setMarker(pp.m_name.c_str());
-					bgfx::setViewFrameBuffer(view, pp.m_output_framebuffer);
+					bgfx::FrameBufferHandle input_framebuffer = BGFX_INVALID_HANDLE;
+					if (subpass.m_input_index == spostprocess_subpass::C_CHAIN_FRAMEBUFFER)
+					{
+						//- Take either the in-out framebuffer if we are the first post process and no previous
+						//- exists logically, or take the last output of the previous framebuffer
+						input_framebuffer = i == 0 ? geometry_framebuffer :
+							ordered_postprocesses[i - 1]->m_postprocess.get().m_passes.back().m_output_framebuffer;
+					}
+					else
+					{
+						//- Take as input the output of one of the subpasses of this postprocess
+						input_framebuffer = postprocess.m_passes[subpass.m_input_index].m_output_framebuffer;
+					}
+
+					const auto view = bgfx::ViewId(C_POSTPROCESS_PASS_ID + postprocess_counter);
+
+					//- Setup state for subpass
+					bgfx::setMarker(fmt::format("{} Subpass #{}", postprocess.m_name, j).c_str());
+					bgfx::setViewFrameBuffer(view, subpass.m_output_framebuffer);
 					bgfx::setViewClear(view, BGFX_CLEAR_COLOR, 0xffffffff);
 					bgfx::setViewMode(view, bgfx::ViewMode::Sequential);
-					bgfx::setTexture(0, pp.m_framebuffer_sampler.m_handle, bgfx::getTexture(previous.m_output_framebuffer));
-					bgfx::setViewRect(view, pp.m_x, pp.m_y, pp.m_backbuffer_ratio);
-					bgfx::setState(pp.m_state | pp.m_blending);
+					bgfx::setTexture(0, subpass.m_framebuffer_sampler.m_handle, bgfx::getTexture(input_framebuffer));
+					bgfx::setViewRect(view, subpass.m_x, subpass.m_y, subpass.m_backbuffer_ratio);
+					bgfx::setState(subpass.m_state | subpass.m_blending);
 
+					//- Bind global engine and pass defined uniforms
 					rs.bind_builtin_uniforms();
 					rs.submit_screen_quad();
 
-					bgfx::submit(view, pp.m_effect.get().m_program);
+					//- Finally execute the subpass
+					bgfx::submit(view, subpass.m_effect.get().m_program);
+
+					++postprocess_counter;
 				}
 			}
 
 			//- Execute the last postprocess in the chain, effectively writing accumulated data to in_out framebuffer
 			{
-				const auto& last = ordered_postprocesses.back()->m_postprocess.get();
+				const auto& last = ordered_postprocesses.back()->m_postprocess.get().m_passes.back();
 				const auto view = bgfx::ViewId(C_POSTPROCESS_PASS_ID + ordered_postprocesses.size());
 
 				bgfx::setMarker("postprocesses chain merge");
-				bgfx::setViewFrameBuffer(view, in_out);
+				bgfx::setViewFrameBuffer(view, geometry_framebuffer);
 				bgfx::setViewClear(view, BGFX_CLEAR_COLOR, 0xffffffff);
 				bgfx::setTexture(0, last.m_framebuffer_sampler.m_handle, bgfx::getTexture(last.m_output_framebuffer));
 				bgfx::setViewRect(view, 0, 0, backbuffer_ratio_t::Equal);
