@@ -21,22 +21,23 @@ void cgame::post_init()
 	world.m_cfg.m_threads = 0;
 	world.m_cfg.m_modules = { "srender_module" };
 
-	std::array<std::string_view, 11> postprocess_names =
+	const auto C_PPS = 11;
+	std::array<std::string_view, C_PPS> postprocess_names =
 	{
+		"chromatic_aberration",
 		"bloom",
 		"blur",
-		"chromatic_aberration",
 		"filmgrain",
 		"grayscale",
+		"sepia",
+		"sharpen",
 		"invert",
 		"posterize",
 		"scanlines",
-		"sepia",
-		"sharpen",
 		"vignette"
 	};
 
-	for (auto i = 0; i < 11; ++i)
+	for (auto i = 0; i < C_PPS; ++i)
 	{
 		const auto name = fmt::format("post process #{}", i);
 

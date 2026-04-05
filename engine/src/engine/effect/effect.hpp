@@ -24,10 +24,12 @@ namespace kokoro
 		{
 			std::string m_filepath_or_name;
 			type m_type = type_none;
+			RTTR_ENABLE();
 		};
 
 		sshader m_vs;
 		sshader m_ps;
+		RTTR_ENABLE();
 	};
 
 	//------------------------------------------------------------------------------------------------------------------------

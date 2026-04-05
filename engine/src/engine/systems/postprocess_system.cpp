@@ -17,19 +17,18 @@ namespace kokoro
 		{
 			if (raw.empty()) return;
 
-			// Name -> volume ptr for lookup
+			//- Name -> volume ptr for lookup
 			std::unordered_map<std::string, const world::component::spostprocess_volume*> by_name;
 			by_name.reserve(raw.size());
-
 			for (const auto* vol : raw)
 			{
 				by_name[vol->m_postprocess.get().m_name] = vol;
 			}
 
-			// Build adjacency list and in-degree from declared constraints.
-			// An edge A -> B means A must execute before B.
-			// predecessors of P => they point TO P  (they run before P)
-			// successors of P   => P points TO them (P runs before them)
+			//- Build adjacency list and in-degree from declared constraints.
+			//- An edge A -> B means A must execute before B.
+			//- predecessors of P => they point TO P  (they run before P)
+			//- successors of P   => P points TO them (P runs before them)
 			std::unordered_map<std::string, std::vector<std::string>> adj;
 			std::unordered_map<std::string, int> in_degree;
 
@@ -46,7 +45,6 @@ namespace kokoro
 
 				for (const auto& pred : pp.m_predecessors)
 				{
-					// pred -> pp.m_name
 					if (by_name.count(pred))
 					{
 						adj[pred].push_back(pp.m_name);
@@ -56,7 +54,6 @@ namespace kokoro
 
 				for (const auto& succ : pp.m_successors)
 				{
-					// pp.m_name -> succ
 					if (by_name.count(succ))
 					{
 						adj[pp.m_name].push_back(succ);
@@ -65,8 +62,12 @@ namespace kokoro
 				}
 			}
 
-			// Kahn's algorithm
-			std::queue<std::string> ready;
+			//- Kahn's algorithm with a min-heap instead of a plain queue.
+			//- When multiple nodes are unconstrained (in_degree == 0) simultaneously,
+			//- they are processed in alphabetical order by name, giving a stable and
+			//- deterministic result regardless of hash map iteration order or the order
+			//- in which the multithreaded gather system populated raw_postprocesses.
+			std::priority_queue<std::string, std::vector<std::string>, std::greater<std::string>> ready;
 
 			for (const auto& [name, deg] : in_degree)
 			{
@@ -75,7 +76,7 @@ namespace kokoro
 
 			while (!ready.empty())
 			{
-				const auto name = ready.front();
+				const auto name = ready.top();
 				ready.pop();
 
 				out.push_back(by_name.at(name));
@@ -203,7 +204,7 @@ namespace kokoro
 			//- Execute the last postprocess in the chain, effectively writing accumulated data to in_out framebuffer
 			{
 				const auto& last = ordered_postprocesses.back()->m_postprocess.get().m_passes.back();
-				const auto view = bgfx::ViewId(C_POSTPROCESS_PASS_ID + ordered_postprocesses.size());
+				const auto view = bgfx::ViewId(C_POSTPROCESS_PASS_ID + postprocess_counter);
 
 				bgfx::setMarker("postprocesses chain merge");
 				bgfx::setViewFrameBuffer(view, geometry_framebuffer);

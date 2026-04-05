@@ -110,36 +110,36 @@ namespace kokoro
 			}
 		}
 
-		//- Try to resolve the snapshot before loading and deserializing
+		const auto resource_type = rttr::type::get<TResource>();
+		const auto type_id = resource_type.get_id();
+		const auto& desc = cache_desc(type_id);
+		const auto& snapshot_type = desc.m_snapshot_type;
+		const auto id = core::hash(path.generic_string());
+
 		{
 			core::cscoped_mutex m(m_mutex);
 
-			if (const auto it = m_snapshots.find(core::hash(path.generic_string())); it != m_snapshots.end())
+			//- Try to resolve the snapshot before loading and deserializing
+			if (const auto it = m_snapshots.find(id); it != m_snapshots.end())
 			{
 				return it->second;
 			}
-		}
 
-		if (auto file = vfs.open(path, file_options_read | file_options_text); file.opened())
-		{
-			auto mem = file.read_sync();
-
-			if (mem && !mem->empty())
+			if (auto file = vfs.open(path, file_options_read | file_options_text); file.opened())
 			{
-				const auto resource_type = rttr::type::get<TResource>();
-				const auto type_id = resource_type.get_id();
-				const auto& desc = cache_desc(type_id);
-				const auto& snapshot_type = desc.m_snapshot_type;
+				auto mem = file.read_sync();
+				file.close();
 
-				if (auto var = core::from_json_blob(snapshot_type, mem->data(), mem->size()); var.is_valid())
+				if (mem && !mem->empty())
 				{
-					core::cscoped_mutex m(m_mutex);
+					if (auto var = core::from_json_blob(snapshot_type, mem->data(), mem->size()); var.is_valid())
+					{
+						auto [it, result] = m_snapshots.emplace(std::piecewise_construct,
+							std::forward_as_tuple(id),
+							std::forward_as_tuple(var));
 
-					auto [it, result] = m_snapshots.emplace(std::piecewise_construct,
-						std::forward_as_tuple(core::hash(path.generic_string())),
-						std::forward_as_tuple(var));
-
-					return it->second;
+						return it->second;
+					}
 				}
 			}
 		}
