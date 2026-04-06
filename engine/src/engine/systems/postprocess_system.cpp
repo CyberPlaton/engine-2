@@ -1,6 +1,7 @@
 #include <engine/systems/postprocess_system.hpp>
 #include <engine/services/render_service.hpp>
 #include <engine.hpp>
+#include <core/profile.hpp>
 #include <core/mutex.hpp>
 
 namespace kokoro
@@ -15,6 +16,8 @@ namespace kokoro
 		void sort_postprocesses(const std::vector<const world::component::spostprocess_volume*>& raw,
 			std::vector<const world::component::spostprocess_volume*>& out)
 		{
+			CPU_ZONE;
+
 			if (raw.empty()) return;
 
 			//- Name -> volume ptr for lookup
@@ -111,6 +114,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void postprocess_gather_system(flecs::entity e, const world::component::spostprocess_volume& c)
 	{
+		CPU_ZONE;
+
 		//- Ensure the post process and all the subpasses are ready
 		if (!c.m_postprocess)
 		{
@@ -132,6 +137,8 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void postprocess_submit_system(flecs::iter& it, float dt)
 	{
+		CPU_ZONE;
+
 		//- Given raw submission order, create an actual order of execution
 		if (raw_postprocesses.empty())
 		{

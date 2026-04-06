@@ -50,12 +50,10 @@ namespace kokoro
 		//- Create programs required for main loop
 		{
 			static const filepath_t C_MERGE_EFFECT_FILEPATH = "engine/effects/merge.effect";
-			static const filepath_t C_APPLY0_EFFECT_FILEPATH = "engine/effects/apply_back0.effect";
 			static const filepath_t C_APPLY1_EFFECT_FILEPATH = "engine/effects/apply_back1.effect";
 
 			auto& rms = instance().service<cresource_manager_service>();
 			m_merge_program = rms.load<seffect>(C_MERGE_EFFECT_FILEPATH);
-			m_apply_back0_program = rms.load<seffect>(C_APPLY0_EFFECT_FILEPATH);
 			m_apply_back1_program = rms.load<seffect>(C_APPLY1_EFFECT_FILEPATH);
 		}
 
@@ -63,9 +61,8 @@ namespace kokoro
 		{
 			auto depth = bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
 			auto color = bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::RGBA8,
-				BGFX_TEXTURE_RT | BGFX_SAMPLER_MIN_POINT |
-				BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT |
-				BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+				BGFX_TEXTURE_RT | BGFX_SAMPLER_MIN_ANISOTROPIC |
+				BGFX_SAMPLER_MAG_ANISOTROPIC | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
 
 			bgfx::TextureHandle attachments[] = { color, depth };
 			m_geometry_framebuffer = bgfx::createFrameBuffer(BX_COUNTOF(attachments), attachments, true);
@@ -101,7 +98,6 @@ namespace kokoro
 	{
 		auto& rms = instance().service<cresource_manager_service>();
 		rms.unload<seffect>(m_merge_program.id());
-		rms.unload<seffect>(m_apply_back0_program.id());
 		rms.unload<seffect>(m_apply_back1_program.id());
 		bgfx::destroy(m_geometry_framebuffer);
 		bgfx::destroy(m_texture_chain_uniform);
@@ -219,8 +215,6 @@ namespace kokoro
 	auto crender_service::merge_program(uint16_t postprocesses) const -> const cview<seffect>
 	{
 		return m_apply_back1_program;
-// 		return (postprocesses % 2 == 0) ? m_apply_back0_program :
-// 			m_apply_back1_program;
 	}
 
 } //- kokoro

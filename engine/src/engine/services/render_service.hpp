@@ -40,7 +40,6 @@ namespace kokoro
 
 	private:
 		cview<seffect> m_merge_program;
-		cview<seffect> m_apply_back0_program;
 		cview<seffect> m_apply_back1_program;
 		bgfx::FrameBufferHandle m_geometry_framebuffer	= BGFX_INVALID_HANDLE;
 		bgfx::UniformHandle m_texture_chain_uniform		= BGFX_INVALID_HANDLE;

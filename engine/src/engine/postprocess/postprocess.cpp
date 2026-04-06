@@ -59,7 +59,7 @@ namespace kokoro
 			pass.m_state = snapshot_pass.m_state;
 			pass.m_backbuffer_ratio = snapshot_pass.m_backbuffer_ratio;
 			pass.m_output_framebuffer = bgfx::createFrameBuffer(pass.m_backbuffer_ratio, texture_format_t::RGBA8,
-				BGFX_TEXTURE_RT | BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
+				BGFX_TEXTURE_RT | BGFX_SAMPLER_MIN_ANISOTROPIC | BGFX_SAMPLER_MAG_ANISOTROPIC | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
 
 			for (const auto& snapshot_input : snapshot_pass.m_framebuffer_inputs)
 			{
