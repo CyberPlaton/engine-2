@@ -222,13 +222,19 @@ namespace kokoro
 
 			log::debug("Starting to load managed resource '{} (id={}, type={})'", path.generic_string(), hash, resource_type.get_name().data());
 
-			core::cscoped_mutex m(c->m_mutex);
+			c->m_mutex.lock();
 
 			//- When we are not having unique instances, we want to check for existing resource and return it instead of loading anew
-			if (const auto it = c->m_entries.find(hash); it != c->m_entries.end())
+			const auto it = c->m_entries.find(hash);
+			if (it != c->m_entries.end())
 			{
+				c->m_mutex.unlock();
+
 				return cview<TResource>(hash, c);
 			}
+			c->m_mutex.unlock();
+
+			core::cscoped_mutex m(c->m_mutex);
 
 			//- Create a new non-owning instance
 			{
