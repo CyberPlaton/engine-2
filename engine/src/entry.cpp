@@ -34,8 +34,8 @@ namespace kokoro::entry
 		e.service<clog_service>().set_level(clog_service::level_trace);
 
 		auto& rms = e.service<cresource_manager_service>();
-		rms.new_manager<stexture, stexture_snapshot, false>()
-			.new_manager<seffect, seffect_snapshot, false>()
+		rms.new_manager<stexture, stexture_snapshot>()
+			.new_manager<seffect, seffect_snapshot>()
 			.new_manager<spostprocess, spostprocess_snapshot>()
 			.new_manager<smesh, smesh_snapshot>()
 			.new_manager<smaterial, smaterial_snapshot>()

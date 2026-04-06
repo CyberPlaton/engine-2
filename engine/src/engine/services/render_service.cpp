@@ -53,8 +53,8 @@ namespace kokoro
 			static const filepath_t C_APPLY1_EFFECT_FILEPATH = "engine/effects/apply_back1.effect";
 
 			auto& rms = instance().service<cresource_manager_service>();
-			m_merge_program = rms.load<seffect>(C_MERGE_EFFECT_FILEPATH);
-			m_apply_back1_program = rms.load<seffect>(C_APPLY1_EFFECT_FILEPATH);
+			m_merge_program = rms.load<seffect>(C_MERGE_EFFECT_FILEPATH, resource_ownership_owning);
+			m_apply_back1_program = rms.load<seffect>(C_APPLY1_EFFECT_FILEPATH, resource_ownership_owning);
 		}
 
 		//- Create default render target with color and depth

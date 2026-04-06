@@ -1,17 +1,19 @@
 #pragma once
-#include <cstdint>
-#include <engine/services/virtual_filesystem_service.hpp>
 #include <core/mutex.hpp>
 #include <core/profile.hpp>
-#include <engine.hpp>
+#include <engine/services/virtual_filesystem_service.hpp>
+#include <engine/services/log_service.hpp>
+#include <fmt.h>
+#include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <queue>
-#include <optional>
 
 namespace kokoro
 {
 	class cresource_manager_service;
+	template<typename TType> class cview;
 	using resource_type_id_t = uint64_t;
 	using resource_id_t = uint64_t;
 	using hashed_path_t = uint64_t;
@@ -27,14 +29,24 @@ namespace kokoro
 	};
 
 	//------------------------------------------------------------------------------------------------------------------------
+	enum resource_ownership : uint8_t
+	{
+		resource_ownership_none = 0,
+		resource_ownership_owning,
+		resource_ownership_non_owning,
+	};
+
+	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TType>
 	struct sresource final
 	{
 	public:
-		std::optional<TType> m_data;
-		filepath_t m_path;
-		resource_id_t m_id = invalid_id_t;
-		resource_state m_state = resource_state_none;
+		std::optional<TType> m_data		= std::nullopt;
+		filepath_t m_path				= {};
+		resource_id_t m_id				= invalid_id_t;
+		resource_state m_state			= resource_state_none;
+		resource_ownership m_ownership	= resource_ownership_none;
+		uint32_t m_ref_count			= 0;
 	};
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -42,15 +54,17 @@ namespace kokoro
 	{
 	public:
 		virtual ~icache() = default;
-
 		virtual void commit() = 0;
 		virtual void shutdown() = 0;
+		virtual void update(float) = 0;
 	};
+
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TType>
 	class ccache final : public icache
 	{
+		friend class cview<TType>;
 		friend class cresource_manager_service;
 	public:
 		using resource_t = sresource<TType>;
@@ -60,6 +74,7 @@ namespace kokoro
 
 		void			commit() override final;
 		void			shutdown() override final;
+		void			update(float dt) override final;
 		TType&			get(resource_id_t id);
 		filepath_t		path(resource_id_t id) const;
 		resource_state	state(resource_id_t id) const;
@@ -70,7 +85,77 @@ namespace kokoro
 		mutable core::cmutex m_mutex;
 		std::queue<std::pair<resource_id_t, std::optional<TType>>> m_pending_load;
 		std::unordered_set<resource_id_t> m_pending_unload;
+
+	private:
+		void			increase_ref_count(resource_id_t id);
+		void			decrease_ref_count(resource_id_t id);
 	};
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TType>
+	void ccache<TType>::decrease_ref_count(resource_id_t id)
+	{
+		core::cscoped_mutex m(m_mutex);
+
+		if (auto it = m_entries.find(id); it != m_entries.end())
+		{
+			if (it->second.m_ref_count > 0 &&
+				it->second.m_state != resource_state_pending)
+			{
+				--it->second.m_ref_count;
+			}
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TType>
+	void ccache<TType>::increase_ref_count(resource_id_t id)
+	{
+		core::cscoped_mutex m(m_mutex);
+
+		if (auto it = m_entries.find(id); it != m_entries.end())
+		{
+			++it->second.m_ref_count;
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TType>
+	void ccache<TType>::update(float dt)
+	{
+		CPU_ZONE;
+
+		core::cscoped_mutex m(m_mutex);
+
+		for (auto it = m_entries.begin(); it != m_entries.end();)
+		{
+			auto& resource = it->second;
+
+			if (resource.m_ownership == resource_ownership_non_owning &&
+				resource.m_ref_count == 0 &&
+				resource.m_state != resource_state_pending)
+			{
+				const auto resource_type = rttr::type::get<TType>();
+
+				log::debug("Starting to unload managed resource '{} (id={}, type={})'",
+					resource.m_path.empty() ? "-/-" : resource.m_path.generic_string(),
+					resource.m_id,
+					resource_type.get_name().data());
+
+				//- Destroy resource
+				if (resource.m_data.has_value())
+				{
+					TType::unload(resource.m_data.value());
+				}
+
+				it = m_entries.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
+	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TType>
@@ -184,54 +269,5 @@ namespace kokoro
 			}
 		}
 	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	template<typename TType>
-	class cview final
-	{
-	public:
-		explicit cview(resource_id_t id, ccache<TType>* cache);
-		cview() = default;
-		~cview() = default;
-
-		inline TType&			get() { return m_cache->get(m_id); }
-		inline const TType&		get() const { return const_cast<const TType&>(m_cache->get(m_id)); }
-		filepath_t				path() const;
-		resource_state			state() const;
-		inline bool				valid() const { return m_cache && m_id != invalid_id_t && m_cache->valid(m_id); }
-		inline resource_id_t	id() const { return m_id; }
-		inline bool				ready() const { return state() == resource_state_finished; }
-		operator				bool() const { return valid() && ready(); }
-
-	private:
-		ccache<TType>* m_cache = nullptr;
-		resource_id_t m_id = invalid_id_t;
-	};
-
-	//------------------------------------------------------------------------------------------------------------------------
-	template<typename TType>
-	resource_state cview<TType>::state() const
-	{
-		if (!m_cache || m_id == invalid_id_t)
-		{
-			return resource_state_none;
-		}
-		return m_cache->state(m_id);
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	template<typename TType>
-	filepath_t cview<TType>::path() const
-	{
-		if (!m_cache || m_id == invalid_id_t)
-		{
-			return {};
-		}
-		return m_cache->path(m_id);
-	}
-
-	//------------------------------------------------------------------------------------------------------------------------
-	template<typename TType>
-	cview<TType>::cview(resource_id_t id, ccache<TType>* cache) : m_cache(cache), m_id(id) {}
 
 } //- kokoro

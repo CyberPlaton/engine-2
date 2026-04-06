@@ -1,6 +1,7 @@
 #pragma once
 #include <engine/iservice.hpp>
-#include <engine/resource.hpp>
+#include <engine/resources/cache.hpp>
+#include <engine/resources/view.hpp>
 #include <engine/services/thread_service.hpp>
 #include <engine/services/log_service.hpp>
 #include <core/hash.hpp>
@@ -19,14 +20,14 @@ namespace kokoro
 		cresource_manager_service() = default;
 		~cresource_manager_service() override = default;
 
-		template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES = true>
+		template<typename TResource, typename TSnapshot>
 		cresource_manager_service&		new_manager();
 		bool							init();
 		void							post_init() {}
 		void							shutdown();
-		void							update(float);
+		void							update(float dt);
 		template<typename TResource>
-		cview<TResource>				load(filepath_t path);
+		cview<TResource>				load(filepath_t path, resource_ownership ownership = resource_ownership_non_owning);
 
 		template<typename TResource, typename TSnapshot>
 		cview<TResource>				load_from_snapshot(const TSnapshot& snapshot);
@@ -40,7 +41,7 @@ namespace kokoro
 	private:
 		struct sresource_cache_desc
 		{
-			sresource_cache_desc(std::unique_ptr<icache>&& cache, rttr::type resource_type, rttr::type snapshot_type, uint64_t next_id, bool unique_instances);
+			sresource_cache_desc(std::unique_ptr<icache>&& cache, rttr::type resource_type, rttr::type snapshot_type, uint64_t next_id);
 			sresource_cache_desc(sresource_cache_desc&& other) noexcept;
 			sresource_cache_desc& operator=(sresource_cache_desc&&) = delete;
 			sresource_cache_desc(const sresource_cache_desc&) = delete;
@@ -50,7 +51,6 @@ namespace kokoro
 			rttr::type m_resource_type;
 			rttr::type m_snapshot_type;
 			resource_id_t m_next_id = 0;
-			const bool m_unique_instances = true;
 		};
 
 		mutable core::cmutex m_mutex;
@@ -67,7 +67,7 @@ namespace kokoro
 
 	//- Create a new manager type for resource and snapshot types. Not thread-safe and should be done once on start up.
 	//------------------------------------------------------------------------------------------------------------------------
-	template<typename TResource, typename TSnapshot, bool C_UNIQUE_INSTANCES /*= true*/>
+	template<typename TResource, typename TSnapshot>
 	cresource_manager_service& cresource_manager_service::new_manager()
 	{
 		static_assert(std::is_move_constructible_v<TResource> && std::is_move_assignable_v<TResource>,
@@ -82,8 +82,7 @@ namespace kokoro
 			std::move(std::make_unique<ccache<TResource>>()),
 			resource_type,
 			snapshot_type,
-			0,
-			C_UNIQUE_INSTANCES
+			0
 		};
 
 		if (auto [it, result] = m_cache_descs.emplace(std::piecewise_construct,
@@ -183,6 +182,16 @@ namespace kokoro
 		if (const auto it = c->m_entries.find(id); it != c->m_entries.end())
 		{
 			auto& resource = it->second;
+
+			if (resource.m_ownership != resource_ownership_owning)
+			{
+				const auto resource_type = rttr::type::get<TResource>();
+
+				log::warn("Trying to unload a non-owning resource '(id={}, type={})'. Non-owning resources are managed automatically and do not require an explicit unload",
+					id, resource_type.get_name().data());
+				return;
+			}
+
 			if (resource.m_state == resource_state_pending)
 			{
 				//- The resource is still being loaded, we have to wait before we can unload it
@@ -197,59 +206,95 @@ namespace kokoro
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TResource>
-	cview<TResource> cresource_manager_service::load(filepath_t path)
+	cview<TResource> cresource_manager_service::load(filepath_t path, resource_ownership ownership /*= resource_ownership_non_owning*/)
 	{
 		CPU_ZONE;
 
-		const auto id = acquire_id<TResource>();
 		const auto resource_type = rttr::type::get<TResource>();
 		const auto type_id = resource_type.get_id();
 		const auto& desc = cache_desc(type_id);
 
-		log::debug("Starting to load resource '{} (id={}, type={})'", path.generic_string(), id, resource_type.get_name().data());
-
 		auto* c = cache<TResource>();
 
-		//- When we are not having unique instances, we want to check for existing resource and return it instead of loading anew
-		if(!desc.m_unique_instances)
+		if (ownership == resource_ownership_non_owning)
 		{
+			const auto hash = core::hash(path.generic_string());
+
+			log::debug("Starting to load managed resource '{} (id={}, type={})'", path.generic_string(), hash, resource_type.get_name().data());
+
 			core::cscoped_mutex m(c->m_mutex);
 
-			if (const auto it = c->m_entries.find(id); it != c->m_entries.end())
+			//- When we are not having unique instances, we want to check for existing resource and return it instead of loading anew
+			if (const auto it = c->m_entries.find(hash); it != c->m_entries.end())
 			{
-				return cview<TResource>(id, c);
+				return cview<TResource>(hash, c);
 			}
-		}
 
-		//- Immediately insert pending entry
-		{
-			core::cscoped_mutex m(c->m_mutex);
-			auto& entry = c->m_entries[id];
-			entry.m_id = id;
-			entry.m_path = path;
-			entry.m_state = resource_state_pending;
-		}
-
-		rttr::variant snaps = snapshot<TResource>(path);
-
-		//- Create a task for loading the resource
-		instance().service<cthread_service>().async(fmt::format("load at path '{}'", path.generic_u8string()),
-			[c, id, snaps=std::move(snaps), path=path, resource_type= resource_type]()
+			//- Create a new non-owning instance
 			{
-				//- Perform the actual loading of the resource. Success indicates whether the loading
-				//- was in order and we can proceed storing the resource
-				auto opt_data = TResource::load(snaps);
+				auto& entry = c->m_entries[hash];
+				entry.m_id = hash;
+				entry.m_path = path;
+				entry.m_state = resource_state_pending;
+				entry.m_ownership = resource_ownership_non_owning;
+			}
 
-				if (!opt_data.has_value())
+			rttr::variant snaps = snapshot<TResource>(path);
+
+			//- Create a task for loading the resource
+			instance().service<cthread_service>().async(fmt::format("load at path '{}'", path.generic_u8string()),
+				[c, hash, snaps = std::move(snaps), path = path, resource_type = resource_type]()
 				{
-					log::err("Failed loading resource '{} (id={}, type={})'", path.generic_string(), id, resource_type.get_name().data());
-				}
+					//- Perform the actual loading of the resource. Success indicates whether the loading
+					//- was in order and we can proceed storing the resource
+					auto opt_data = TResource::load(snaps);
 
-				core::cscoped_mutex m(c->m_mutex);
-				c->m_pending_load.push({ id, std::move(opt_data) });
-			});
+					if (!opt_data.has_value())
+					{
+						log::err("Failed loading resource '{} (id={}, type={})'", path.generic_string(), hash, resource_type.get_name().data());
+					}
 
-		return cview<TResource>(id, c);
+					core::cscoped_mutex m(c->m_mutex);
+					c->m_pending_load.push({ hash, std::move(opt_data) });
+				});
+
+			return cview<TResource>(hash, c);
+		}
+		else if (ownership == resource_ownership_owning)
+		{
+			const auto id = acquire_id<TResource>();
+
+			//- Create a new owning instance
+			{
+				auto& entry = c->m_entries[id];
+				entry.m_id = id;
+				entry.m_path = path;
+				entry.m_state = resource_state_pending;
+				entry.m_ownership = resource_ownership_owning;
+			}
+
+			rttr::variant snaps = snapshot<TResource>(path);
+
+			//- Create a task for loading the resource
+			instance().service<cthread_service>().async(fmt::format("load at path '{}'", path.generic_u8string()),
+				[c, id, snaps = std::move(snaps), path = path, resource_type = resource_type]()
+				{
+					//- Perform the actual loading of the resource. Success indicates whether the loading
+					//- was in order and we can proceed storing the resource
+					auto opt_data = TResource::load(snaps);
+
+					if (!opt_data.has_value())
+					{
+						log::err("Failed loading resource '{} (id={}, type={})'", path.generic_string(), id, resource_type.get_name().data());
+					}
+
+					core::cscoped_mutex m(c->m_mutex);
+					c->m_pending_load.push({ id, std::move(opt_data) });
+				});
+
+			return cview<TResource>(id, c);
+		}
+		return {};
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -263,20 +308,9 @@ namespace kokoro
 		const auto type_id = resource_type.get_id();
 		const auto& desc = cache_desc(type_id);
 
-		log::debug("Starting to load resource from snapshot '(id={}, type={})'", id, resource_type.get_name().data());
+		log::debug("Starting to load unmanaged resource from snapshot '(id={}, type={})'", id, resource_type.get_name().data());
 
 		auto* c = cache<TResource>();
-
-		//- When we are not having unique instances, we want to check for existing resource and return it instead of loading anew
-		if (!desc.m_unique_instances)
-		{
-			core::cscoped_mutex m(c->m_mutex);
-
-			if (const auto it = c->m_entries.find(id); it != c->m_entries.end())
-			{
-				return cview<TResource>(id, c);
-			}
-		}
 
 		//- Immediately insert pending entry
 		{
@@ -284,6 +318,7 @@ namespace kokoro
 			auto& entry = c->m_entries[id];
 			entry.m_id = id;
 			entry.m_state = resource_state_pending;
+			entry.m_ownership = resource_ownership_owning;
 		}
 
 		//- Create a task for loading the resource
