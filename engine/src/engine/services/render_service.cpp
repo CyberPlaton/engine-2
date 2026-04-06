@@ -187,33 +187,23 @@ namespace kokoro
 			const float minu = -1.0f;
 			const float maxu = 1.0f;
 
-			float minv = 0.0f;
-			float maxv = 2.0f;
+			float minv = 1.0f;
+			float maxv = -1.0f;
 
 			if (_originBottomLeft)
 			{
-				std::swap(minv, maxv);
-				minv -= 1.0f;
-				maxv -= 1.0f;
+				minv = 0.0f;
+				maxv = 2.0f;
 			}
 
-			vertex[0].m_x = -1.0f;
-			vertex[0].m_y = -1.0f;
-			vertex[0].m_z = 0.0f;
-			vertex[0].m_u = 0.0f;
-			vertex[0].m_v = 0.0f;
+			vertex[0].m_x = -1.0f; vertex[0].m_y = -1.0f; vertex[0].m_z = 0.0f;
+			vertex[0].m_u = 0.0f;  vertex[0].m_v = minv;
 
-			vertex[1].m_x = 3.0f;
-			vertex[1].m_y = -1.0f;
-			vertex[1].m_z = 0.0f;
-			vertex[1].m_u = 2.0f;
-			vertex[1].m_v = 0.0f;
+			vertex[1].m_x = 3.0f; vertex[1].m_y = -1.0f; vertex[1].m_z = 0.0f;
+			vertex[1].m_u = 2.0f;  vertex[1].m_v = minv;
 
-			vertex[2].m_x = -1.0f;
-			vertex[2].m_y = 3.0f;
-			vertex[2].m_z = 0.0f;
-			vertex[2].m_u = 0.0f;
-			vertex[2].m_v = 2.0f;
+			vertex[2].m_x = -1.0f; vertex[2].m_y = 3.0f; vertex[2].m_z = 0.0f;
+			vertex[2].m_u = 0.0f;  vertex[2].m_v = maxv;
 
 			bgfx::setVertexBuffer(0, &vb);
 		}

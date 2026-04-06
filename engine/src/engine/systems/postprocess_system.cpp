@@ -165,20 +165,6 @@ namespace kokoro
 				{
 					auto& subpass = postprocess.m_passes[j];
 
-					bgfx::FrameBufferHandle input_framebuffer = BGFX_INVALID_HANDLE;
-					if (subpass.m_input_index == spostprocess_subpass::C_CHAIN_FRAMEBUFFER)
-					{
-						//- Take either the in-out framebuffer if we are the first post process and no previous
-						//- exists logically, or take the last output of the previous framebuffer
-						input_framebuffer = i == 0 ? geometry_framebuffer :
-							ordered_postprocesses[i - 1]->m_postprocess.get().m_passes.back().m_output_framebuffer;
-					}
-					else
-					{
-						//- Take as input the output of one of the subpasses of this postprocess
-						input_framebuffer = postprocess.m_passes[subpass.m_input_index].m_output_framebuffer;
-					}
-
 					const auto view = bgfx::ViewId(C_POSTPROCESS_PASS_ID + postprocess_counter);
 
 					//- Setup state for subpass
@@ -186,9 +172,30 @@ namespace kokoro
 					bgfx::setViewFrameBuffer(view, subpass.m_output_framebuffer);
 					bgfx::setViewClear(view, BGFX_CLEAR_COLOR, 0xffffffff);
 					bgfx::setViewMode(view, bgfx::ViewMode::Sequential);
-					bgfx::setTexture(0, subpass.m_framebuffer_sampler.m_handle, bgfx::getTexture(input_framebuffer));
 					bgfx::setViewRect(view, subpass.m_x, subpass.m_y, subpass.m_backbuffer_ratio);
 					bgfx::setState(subpass.m_state | subpass.m_blending);
+
+					//- Bind required framebuffer textures
+					for (auto k = 0; k < subpass.m_framebuffer_inputs.size(); ++k)
+					{
+						const auto& input = subpass.m_framebuffer_inputs[k];
+
+						bgfx::FrameBufferHandle input_framebuffer = BGFX_INVALID_HANDLE;
+						if (input.m_input_index == spostprocess_subpass::C_CHAIN_FRAMEBUFFER)
+						{
+							//- Take either the in-out framebuffer if we are the first post process and no previous
+							//- exists logically, or take the last output of the previous framebuffer
+							input_framebuffer = i == 0 ? geometry_framebuffer :
+								ordered_postprocesses[i - 1]->m_postprocess.get().m_passes.back().m_output_framebuffer;
+						}
+						else
+						{
+							//- Take as input the output of one of the subpasses of this postprocess
+							input_framebuffer = postprocess.m_passes[input.m_input_index].m_output_framebuffer;
+						}
+
+						bgfx::setTexture(static_cast<uint8_t>(k), input.m_input_uniform.m_handle, bgfx::getTexture(input_framebuffer));
+					}
 
 					//- Bind global engine and pass defined uniforms
 					rs.bind_builtin_uniforms();
@@ -209,17 +216,16 @@ namespace kokoro
 				bgfx::setMarker("postprocesses chain merge");
 				bgfx::setViewFrameBuffer(view, geometry_framebuffer);
 				bgfx::setViewClear(view, BGFX_CLEAR_COLOR, 0xffffffff);
-				bgfx::setTexture(0, last.m_framebuffer_sampler.m_handle, bgfx::getTexture(last.m_output_framebuffer));
+				bgfx::setTexture(0, rs.chain_framebuffer_uniform(), bgfx::getTexture(last.m_output_framebuffer));
 				bgfx::setViewRect(view, 0, 0, backbuffer_ratio_t::Equal);
 				bgfx::setState(0
 					| BGFX_STATE_WRITE_RGB
 					| BGFX_STATE_WRITE_A
 					| BGFX_STATE_CULL_CW);
 
-				rs.bind_builtin_uniforms();
 				rs.submit_screen_quad();
 
-				bgfx::submit(view, rs.merge_program(static_cast<uint16_t>(ordered_postprocesses.size())).get().m_program);
+				bgfx::submit(view, rs.merge_program(static_cast<uint16_t>(postprocess_counter)).get().m_program);
 			}
 		}
 	}

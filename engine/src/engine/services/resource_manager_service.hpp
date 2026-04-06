@@ -142,6 +142,10 @@ namespace kokoro
 					}
 				}
 			}
+			else
+			{
+				log::err("Failed opening '{}' snapshot file at '{}'", snapshot_type.get_name().data(), path.generic_string());
+			}
 		}
 		return {};
 	}

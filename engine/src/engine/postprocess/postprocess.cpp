@@ -3,6 +3,7 @@
 #include <engine/services/virtual_filesystem_service.hpp>
 #include <engine/services/render_service.hpp>
 #include <engine/effect/effect.hpp>
+#include <core/registrator.hpp>
 #include <engine.hpp>
 
 namespace kokoro
@@ -59,7 +60,13 @@ namespace kokoro
 			pass.m_backbuffer_ratio = snapshot_pass.m_backbuffer_ratio;
 			pass.m_output_framebuffer = bgfx::createFrameBuffer(pass.m_backbuffer_ratio, texture_format_t::RGBA8,
 				BGFX_TEXTURE_RT | BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
-			pass.m_framebuffer_sampler = create_uniform("s_texture", uniform_type_t::Sampler);
+
+			for (const auto& snapshot_input : snapshot_pass.m_framebuffer_inputs)
+			{
+				auto& input = pass.m_framebuffer_inputs.emplace_back();
+				input.m_input_index = snapshot_input.m_input_index;
+				input.m_input_uniform = create_uniform(snapshot_input.m_input_uniform.m_name.c_str(), uniform_type_t::Sampler);
+			}
 		}
 
 		return std::move(postprocess);
@@ -72,3 +79,35 @@ namespace kokoro
 	}
 
 } //- kokoro
+
+RTTR_REGISTRATION
+{
+	using namespace kokoro;
+
+	rttr::detail::default_constructor<std::vector<suniform>>();
+	rttr::detail::default_constructor<std::vector<spostprocess_snapshot::sampler_texture_t>>();
+	rttr::detail::default_constructor<std::vector<spostprocess_snapshot::ssubpass>>();
+
+	//------------------------------------------------------------------------------------------------------------------------
+	rttr::cregistrator<spostprocess_snapshot::ssubpass::sframebuffer_input>("spostprocess_snapshot::ssubpass::sframebuffer_input")
+		.prop("m_input_uniform", &spostprocess_snapshot::ssubpass::sframebuffer_input::m_input_uniform)
+		.prop("m_input_index", &spostprocess_snapshot::ssubpass::sframebuffer_input::m_input_index);
+
+	//------------------------------------------------------------------------------------------------------------------------
+	rttr::cregistrator<spostprocess_snapshot::ssubpass>("spostprocess_snapshot::ssubpass")
+		.prop("m_uniforms", &spostprocess_snapshot::ssubpass::m_uniforms)
+		.prop("m_sampler_textures", &spostprocess_snapshot::ssubpass::m_sampler_textures)
+		.prop("m_framebuffer_inputs", &spostprocess_snapshot::ssubpass::m_framebuffer_inputs)
+		.prop("m_effect", &spostprocess_snapshot::ssubpass::m_effect)
+		.prop("m_blending", &spostprocess_snapshot::ssubpass::m_blending)
+		.prop("m_state", &spostprocess_snapshot::ssubpass::m_state)
+		.prop("m_backbuffer_ratio", &spostprocess_snapshot::ssubpass::m_backbuffer_ratio);
+
+	//------------------------------------------------------------------------------------------------------------------------
+	rttr::cregistrator<spostprocess_snapshot>("spostprocess_snapshot")
+		.prop("m_predecessors", &spostprocess_snapshot::m_predecessors)
+		.prop("m_successors", &spostprocess_snapshot::m_successors)
+		.prop("m_passes", &spostprocess_snapshot::m_passes)
+		.prop("m_name", &spostprocess_snapshot::m_name);
+
+}

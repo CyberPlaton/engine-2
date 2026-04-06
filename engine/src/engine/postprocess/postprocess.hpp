@@ -18,18 +18,28 @@ namespace kokoro
 
 		struct ssubpass
 		{
+			struct sframebuffer_input
+			{
+				suniform m_input_uniform;
+				int8_t m_input_index = -1;
+				RTTR_ENABLE();
+			};
+
 			std::vector<suniform> m_uniforms;
 			std::vector<sampler_texture_t> m_sampler_textures;
+			std::vector<sframebuffer_input> m_framebuffer_inputs;
 			std::string m_effect;
 			uint64_t m_blending = 0;
 			uint64_t m_state = 0;
 			backbuffer_ratio_t m_backbuffer_ratio = backbuffer_ratio_t::Equal;
+			RTTR_ENABLE();
 		};
 
 		std::vector<std::string> m_predecessors;
 		std::vector<std::string> m_successors;
 		std::vector<ssubpass> m_passes;
 		std::string m_name;
+		RTTR_ENABLE();
 	};
 
 	//- Definition of one rendering pass for a post process. A post process can consist of n-many passes.
@@ -44,9 +54,18 @@ namespace kokoro
 			| BGFX_STATE_WRITE_A
 			| BGFX_STATE_CULL_CW;
 
+		struct sframebuffer_input
+		{
+			suniform m_input_uniform;
+			int8_t m_input_index = C_CHAIN_FRAMEBUFFER;		//- Which subpasses output to take as input for this subpass,
+															//- if value is C_CHAIN_FRAMEBUFFER then the input will be the
+															//- the "chain input", i.e. the output of previous logical
+															//- postprocess.
+		};
+
 		std::vector<suniform> m_uniforms;									//- Custom uniform binding data to be bound for shading
 		std::vector<sampler_texture_t> m_sampler_textures;					//- Additional sampler textures to be bound for shading
-		suniform m_framebuffer_sampler;										//- Output framebuffer sampler uniform
+		std::vector<sframebuffer_input> m_framebuffer_inputs;				//- Additional framebuffer textures to be bound for shading
 		cview<seffect> m_effect;											//- Effect to be used for shading
 		uint64_t m_blending = C_BLEND_DEFAULT;
 		uint64_t m_state = C_STATE_DEFAULT;
@@ -54,10 +73,6 @@ namespace kokoro
 		bgfx::FrameBufferHandle m_output_framebuffer = BGFX_INVALID_HANDLE;	//- Target to render to
 		uint16_t m_x = 0;
 		uint16_t m_y = 0;
-		int8_t m_input_index = C_CHAIN_FRAMEBUFFER;							//- Which subpasses output to take as input for this subpass,
-																			//- if value is C_CHAIN_FRAMEBUFFER then the input will be the
-																			//- the "chain input", i.e. the output of previous logical
-																			//- postprocess.
 	};
 
 	//------------------------------------------------------------------------------------------------------------------------

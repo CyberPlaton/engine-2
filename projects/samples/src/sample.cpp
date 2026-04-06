@@ -21,38 +21,116 @@ void cgame::post_init()
 	world.m_cfg.m_threads = 0;
 	world.m_cfg.m_modules = { "srender_module" };
 
-	const auto C_PPS = 11;
-	std::array<std::string_view, C_PPS> postprocess_names =
-	{
-		"chromatic_aberration",
-		"bloom",
-		"blur",
-		"filmgrain",
-		"grayscale",
-		"sepia",
-		"sharpen",
-		"invert",
-		"posterize",
-		"scanlines",
-		"vignette"
-	};
+// 	const auto C_PPS = 11;
+// 	std::array<std::string_view, C_PPS> postprocess_names =
+// 	{
+// 		"chromatic_aberration",
+// 		"bloom",
+// 		"blur",
+// 		"filmgrain",
+// 		"grayscale",
+// 		"sepia",
+// 		"sharpen",
+// 		"invert",
+// 		"posterize",
+// 		"scanlines",
+// 		"vignette"
+// 	};
+// 
+// 	for (auto i = 0; i < C_PPS; ++i)
+// 	{
+// 		const auto name = fmt::format("post process #{}", i);
+// 
+// 		auto& e = world.m_scene.m_entities.emplace_back();
+// 		e.m_name = name;
+// 
+// 		{
+// 			kokoro::spostprocess_snapshot postprocess;
+// 			postprocess.m_name = name;
+// 
+// 			auto& subpass = postprocess.m_passes.emplace_back();
+// 			subpass.m_effect = fmt::format("engine/postprocesses/{}.effect", postprocess_names[i]);
+// 			subpass.m_blending = kokoro::spostprocess_subpass::C_BLEND_DEFAULT;
+// 			subpass.m_state = kokoro::spostprocess_subpass::C_STATE_DEFAULT;
+// 			subpass.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Equal;
+// 
+// 			auto& input = subpass.m_framebuffer_inputs.emplace_back();
+// 			input.m_input_index = -1;
+// 			input.m_input_uniform = kokoro::create_uniform("s_texture", kokoro::uniform_type_t::Sampler);
+// 
+// 			kokoro::world::component::spostprocess_volume comp;
+// 			comp.m_postprocess = kokoro::instance().service<kokoro::cresource_manager_service>().load_from_snapshot<kokoro::spostprocess>(postprocess);
+// 
+// 			auto& c = e.m_comps.emplace_back();
+// 			c.m_type_name = rttr::type::get<kokoro::world::component::spostprocess_volume>().get_name().data();
+// 			c.m_data = comp;
+// 		}
+// 	}
 
-	for (auto i = 0; i < C_PPS; ++i)
+	//- Create a bloom post process
 	{
-		const auto name = fmt::format("post process #{}", i);
-
 		auto& e = world.m_scene.m_entities.emplace_back();
-		e.m_name = name;
+		e.m_name = "bloom entity";
 
 		{
 			kokoro::spostprocess_snapshot postprocess;
-			postprocess.m_name = name;
+			postprocess.m_name = "bloom post process";
 
-			auto& subpass = postprocess.m_passes.emplace_back();
-			subpass.m_effect = fmt::format("engine/postprocesses/{}.effect", postprocess_names[i]);
-			subpass.m_blending = kokoro::spostprocess_subpass::C_BLEND_DEFAULT;
-			subpass.m_state = kokoro::spostprocess_subpass::C_STATE_DEFAULT;
-			subpass.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Equal;
+			//- pass 0 - bloom threshold
+			{
+				auto& subpass = postprocess.m_passes.emplace_back();
+				subpass.m_effect = "/postprocesses/bloom/bloom_threshold.effect";
+				subpass.m_blending = kokoro::spostprocess_subpass::C_BLEND_DEFAULT;
+				subpass.m_state = kokoro::spostprocess_subpass::C_STATE_DEFAULT;
+				subpass.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Equal;
+
+				auto& input = subpass.m_framebuffer_inputs.emplace_back();
+				input.m_input_index = kokoro::spostprocess_subpass::C_CHAIN_FRAMEBUFFER;
+				input.m_input_uniform = kokoro::create_uniform("s_texture", kokoro::uniform_type_t::Sampler);
+			}
+
+			//- pass 1 - horizontal blur
+			{
+				auto& subpass = postprocess.m_passes.emplace_back();
+				subpass.m_effect = "/postprocesses/bloom/bloom_blur_h.effect";
+				subpass.m_blending = kokoro::spostprocess_subpass::C_BLEND_DEFAULT;
+				subpass.m_state = kokoro::spostprocess_subpass::C_STATE_DEFAULT;
+				subpass.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Quarter;
+
+				auto& input = subpass.m_framebuffer_inputs.emplace_back();
+				input.m_input_index = 0;
+				input.m_input_uniform = kokoro::create_uniform("s_texture", kokoro::uniform_type_t::Sampler);
+			}
+
+			//- pass 2 - vertical blur
+			{
+				auto& subpass = postprocess.m_passes.emplace_back();
+				subpass.m_effect = "/postprocesses/bloom/bloom_blur_v.effect";
+				subpass.m_blending = kokoro::spostprocess_subpass::C_BLEND_DEFAULT;
+				subpass.m_state = kokoro::spostprocess_subpass::C_STATE_DEFAULT;
+				subpass.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Eighth;
+
+				auto& input = subpass.m_framebuffer_inputs.emplace_back();
+				input.m_input_index = 1;
+				input.m_input_uniform = kokoro::create_uniform("s_texture", kokoro::uniform_type_t::Sampler);
+			}
+
+			//- pass 3 - merge
+			{
+				auto& subpass = postprocess.m_passes.emplace_back();
+				subpass.m_effect = "/postprocesses/bloom/bloom_composite.effect";
+				subpass.m_blending = kokoro::spostprocess_subpass::C_BLEND_DEFAULT;
+				subpass.m_state = kokoro::spostprocess_subpass::C_STATE_DEFAULT;
+				subpass.m_backbuffer_ratio = kokoro::backbuffer_ratio_t::Equal;
+
+				auto& first = subpass.m_framebuffer_inputs.emplace_back();
+				first.m_input_index = kokoro::spostprocess_subpass::C_CHAIN_FRAMEBUFFER;
+				first.m_input_uniform = kokoro::create_uniform("s_texture", kokoro::uniform_type_t::Sampler);
+
+				auto& second = subpass.m_framebuffer_inputs.emplace_back();
+				second.m_input_index = 2;
+				second.m_input_uniform = kokoro::create_uniform("s_bloom", kokoro::uniform_type_t::Sampler);
+			}
 
 			kokoro::world::component::spostprocess_volume comp;
 			comp.m_postprocess = kokoro::instance().service<kokoro::cresource_manager_service>().load_from_snapshot<kokoro::spostprocess>(postprocess);

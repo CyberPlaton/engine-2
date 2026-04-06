@@ -359,7 +359,14 @@ namespace kokoro
 			{
 				if (starts_with(filepath_string, alias))
 				{
-					return { true, filepath_t{ replace(filepath_string, alias, basepath) } };
+					if (alias == "/")
+					{
+						return { true, filepath_t{ replace(filepath_string, alias, basepath + "/") } };
+					}
+					else
+					{
+						return { true, filepath_t{ replace(filepath_string, alias, basepath) } };
+					}
 				}
 			}
 		}
@@ -381,15 +388,11 @@ namespace kokoro
 
 		auto path = filepath;
 
-		if (filepath.is_relative())
+		if (filepath.is_relative() && !exists(filepath))
 		{
-			for (const auto& [alias, basepath] : m_aliases)
+			if (const auto [result, value] = resolve(filepath); result)
 			{
-				if (starts_with(filepath_string, alias))
-				{
-					path = filepath_t{ replace(filepath_string, alias, basepath) };
-					break;
-				}
+				path = value;
 			}
 		}
 

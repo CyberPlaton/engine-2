@@ -1,0 +1,17 @@
+{
+    "m_ps": {
+        "__type__": "seffect_snapshot::sshader",
+        "seffect_snapshot::sshader": {
+            "m_filepath_or_name": "/postprocesses/bloom/bloom_threshold.fx",
+            "m_type": "type_file"
+        }
+    },
+    "m_uniforms": [],
+    "m_vs": {
+        "__type__": "seffect_snapshot::sshader",
+        "seffect_snapshot::sshader": {
+          "m_filepath_or_name": "vs_postprocess",
+          "m_type": "type_embedded"
+      }
+    }
+}

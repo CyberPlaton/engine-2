@@ -35,6 +35,7 @@ namespace kokoro
 		void		submit_screen_quad(float scalex = 1.0f, float scaley = 1.0f);
 		void		bind_builtin_uniforms();
 		auto		geometry_framebuffer() const -> const bgfx::FrameBufferHandle { return m_geometry_framebuffer; }
+		auto		chain_framebuffer_uniform() const -> bgfx::UniformHandle { return m_texture_chain_uniform; }
 		auto		merge_program(uint16_t postprocesses) const -> const cview<seffect>;
 
 	private:
