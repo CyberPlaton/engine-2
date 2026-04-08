@@ -3,6 +3,12 @@
 
 namespace kokoro
 {
+	//- A view of a resource allows access to data stored and additional information about the resource. A valid resource
+	//- has a real id and is stored in the resource cache, however, it might not be completely loaded yet. A ready resource
+	//- has completed loading either successfully or not.
+	//- Depending on the resource we are viewing the path may be empty. This implies that it was loaded from a direct snapshot
+	//- object and is unmanaged (non-owning) and must be explicitly unloaded once.
+	//- When an unmanaged resource is unloaded, other views viewing said resource become invalid.
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TType>
 	class cview final
@@ -18,18 +24,41 @@ namespace kokoro
 
 		inline TType&			get() { return m_cache->get(m_id); }
 		inline const TType&		get() const { return const_cast<const TType&>(m_cache->get(m_id)); }
-		filepath_t				path() const;
+		filepath_t				path() const; //- Retrieve the path from which resource was loaded. May be empty if loaded from snapshot directly.
 		resource_state			state() const;
+		resource_ownership		ownership() const;
 		inline bool				valid() const { return m_cache && m_id != invalid_id_t && m_cache->valid(m_id); }
 		inline resource_id_t	id() const { return m_id; }
 		inline bool				ready() const { return state() == resource_state_finished; }
+		uint32_t				use_count() const;
 		operator				bool() const { return valid() && ready(); }
-
 
 	private:
 		ccache<TType>* m_cache = nullptr;
 		resource_id_t m_id = invalid_id_t;
 	};
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TType>
+	uint32_t cview<TType>::use_count() const
+	{
+		if (!m_cache || m_id == invalid_id_t)
+		{
+			return 0;
+		}
+		return m_cache->use_count(m_id);
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TType>
+	resource_ownership cview<TType>::ownership() const
+	{
+		if (!m_cache || m_id == invalid_id_t)
+		{
+			return resource_ownership_none;
+		}
+		return m_cache->ownership(m_id);
+	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TType>

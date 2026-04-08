@@ -72,13 +72,15 @@ namespace kokoro
 		ccache() = default;
 		~ccache() = default;
 
-		void			commit() override final;
-		void			shutdown() override final;
-		void			update(float dt) override final;
-		TType&			get(resource_id_t id);
-		filepath_t		path(resource_id_t id) const;
-		resource_state	state(resource_id_t id) const;
-		bool			valid(resource_id_t id) const;
+		void				commit() override final;
+		void				shutdown() override final;
+		void				update(float dt) override final;
+		TType&				get(resource_id_t id);
+		filepath_t			path(resource_id_t id) const;
+		resource_state		state(resource_id_t id) const;
+		resource_ownership	ownership(resource_id_t id) const;
+		bool				valid(resource_id_t id) const;
+		uint32_t			use_count(resource_id_t id) const;
 
 	private:
 		std::unordered_map<resource_id_t, resource_t> m_entries;
@@ -90,6 +92,32 @@ namespace kokoro
 		void			increase_ref_count(resource_id_t id);
 		void			decrease_ref_count(resource_id_t id);
 	};
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TType>
+	uint32_t ccache<TType>::use_count(resource_id_t id) const
+	{
+		core::cscoped_mutex m(m_mutex);
+
+		if (const auto it = m_entries.find(id); it != m_entries.end())
+		{
+			return it->second.m_ref_count;
+		}
+		return 0;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	template<typename TType>
+	resource_ownership ccache<TType>::ownership(resource_id_t id) const
+	{
+		core::cscoped_mutex m(m_mutex);
+
+		if (const auto it = m_entries.find(id); it != m_entries.end())
+		{
+			return it->second.m_ownership;
+		}
+		return resource_ownership_none;
+	}
 
 	//------------------------------------------------------------------------------------------------------------------------
 	template<typename TType>
