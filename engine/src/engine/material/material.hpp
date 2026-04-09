@@ -2,6 +2,7 @@
 #include <engine/effect/effect.hpp>
 #include <engine/render/texture.hpp>
 #include <engine/services/resource_manager_service.hpp>
+#include <engine/math/vec4.hpp>
 #include <optional>
 
 namespace kokoro
@@ -62,6 +63,7 @@ namespace kokoro
 
 		std::vector<ssampler_texture> m_sampler_textures;
 		std::vector<suniform> m_uniforms;
+		math::vec4_t m_source = { 0.0f, 0.0f, 1.0f, 1.0f };
 		cview<seffect> m_effect;
 		uint64_t m_blending = C_MATERIAL_BLEND_DEFAULT;
 		uint64_t m_state = C_MATERIAL_STATE_DEFAULT;

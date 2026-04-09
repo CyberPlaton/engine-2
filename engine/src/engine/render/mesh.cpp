@@ -7,68 +7,111 @@
 #include <engine.hpp>
 #include <fmt.h>
 #include <dlmalloc.h>
+#include <string_view>
 
 namespace kokoro
 {
+	namespace
+	{
+		//------------------------------------------------------------------------------------------------------------------------
+		bool validate(const smesh_snapshot& snaps)
+		{
+			if (snaps.m_vertices.empty() || snaps.m_indices.empty())
+			{
+				return false;
+			}
+			if (!snaps.m_uvs.empty() &&
+				snaps.m_vertices.size() != snaps.m_uvs.size())
+			{
+				return false;
+			}
+			if (!snaps.m_colors.empty() &&
+				snaps.m_vertices.size() != snaps.m_colors.size())
+			{
+				return false;
+			}
+			return true;
+		}
+
+	} //- unnamed
+
 	//------------------------------------------------------------------------------------------------------------------------
 	std::optional<smesh> smesh::load(const rttr::variant& snapshot)
 	{
-		const auto& layout = spos_color_uv_vertex::get().layout();
-		const auto& snaps = snapshot.get_value<smesh_snapshot>();
-		smesh mesh;
-		mesh.m_layout = layout;
-
-		const auto u_start = snaps.m_source.x;
-		const auto u_end = snaps.m_source.x + snaps.m_source.z;
-		const auto v_start = snaps.m_source.y;
-		const auto v_end = snaps.m_source.y + snaps.m_source.w;
-
-		spos_color_uv_vertex vertices[] =
+		if (!snapshot.is_valid())
 		{
-			{ snaps.m_v1.x, snaps.m_v1.y, snaps.m_v1.z, 0xffffffff, u_start, v_end },	//- Bottom-left
-			{ snaps.m_v2.x, snaps.m_v2.y, snaps.m_v2.z, 0xffffffff, u_end, v_end },		//- Bottom-right
-			{ snaps.m_v3.x, snaps.m_v3.y, snaps.m_v3.z, 0xffffffff, u_start, v_start },	//- Top-left
-			{ snaps.m_v4.x, snaps.m_v4.y, snaps.m_v4.z, 0xffffffff, u_end, v_start }		//- Top-right
-		};
+			log::err("smesh::load - received invalid snapshot variant");
+			return std::nullopt;
+		}
 
-		uint16_t indices[] = {
-			0, 1, 2, //- First triangle
-			1, 3, 2  //- Second triangle
-		};
+		const auto& snaps = snapshot.get_value<smesh_snapshot>();
+		const auto& layout = spos_color_uv_vertex::get().layout();
+		smesh mesh;
 
-		const auto sprite_vertex_size = sizeof(spos_color_uv_vertex);
-		const auto vertices_size = sizeof(vertices);
-		const auto indices_size = sizeof(indices);
+		if (!validate(snaps))
+		{
+			log::err("smesh::load - mesh snapshot is invalid");
+			return std::nullopt;
+		}
 
-		//- Create vertex buffer
-		const bgfx::Memory* vb_mem = bgfx::copy(vertices, vertices_size);
-		bgfx::VertexBufferHandle vbh = bgfx::createVertexBuffer(vb_mem, mesh.m_layout);
+		const auto buffer_size = snaps.m_vertices.size() * layout.getStride();
+		auto* buffer = KOKORO_MALLOC(buffer_size);
+		auto* vertices = reinterpret_cast<spos_color_uv_vertex*>(buffer);
 
-		//- Create index buffer
-		const bgfx::Memory* ib_mem = bgfx::copy(indices, sizeof(indices));
-		bgfx::IndexBufferHandle ibh = bgfx::createIndexBuffer(ib_mem);
+		for (auto i = 0; i < snaps.m_vertices.size(); ++i)
+		{
+			const auto& position = snaps.m_vertices[i];
+			vertices[i] = { position.x, position.y, 0.0f, 0xffffffff, 0.0f, 0.0f };
+		}
 
-		//- Create a primitive
-		smesh::sgroup::sprimitive prim;
-		prim.m_start_index = 0;
-		prim.m_start_vertex = 0;
-		prim.m_index_count = indices_size / sizeof(uint16_t);
-		prim.m_vertex_count = vertices_size / sprite_vertex_size;
+		for (auto i = 0; i < snaps.m_uvs.size(); ++i)
+		{
+			const auto& uv = snaps.m_uvs[i];
+			vertices[i].m_u = uv.x;
+			vertices[i].m_v = uv.y;
+		}
 
-		//- Create a group
-		smesh::sgroup group;
-		group.m_vbh = vbh;
-		group.m_ibh = ibh;
+		for (auto i = 0; i < snaps.m_colors.size(); ++i)
+		{
+			const auto& color = snaps.m_colors[i];
+			vertices[i].m_abgr = color;
+		}
 
-		group.m_vertices = (uint8_t*)KOKORO_MALLOC(vb_mem->size);
-		group.m_vertex_count = vb_mem->size;
-		bx::memCopy(group.m_vertices, vb_mem->data, group.m_vertex_count);
+		const auto* vertex_memory = bgfx::copy(buffer, buffer_size);
+		const auto* index_memory = bgfx::copy(snaps.m_indices.data(), snaps.m_indices.size() * sizeof(uint16_t));
+		KOKORO_FREE(buffer);
 
-		group.m_indices = (uint16_t*)KOKORO_MALLOC(ib_mem->size);
-		group.m_index_count = ib_mem->size;
-		bx::memCopy(group.m_indices, ib_mem->data, group.m_index_count);
+		switch (snaps.m_type)
+		{
+		case mesh_usage_type_dynamic:
+		{
+			mesh.m_vbh_dynamic = bgfx::createDynamicVertexBuffer(vertex_memory, layout);
+			mesh.m_ibh_dynamic = bgfx::createDynamicIndexBuffer(index_memory);
 
-		group.m_primitives.push_back(prim);
+			if (!bgfx::isValid(mesh.m_vbh_dynamic) || !bgfx::isValid(mesh.m_ibh_dynamic))
+			{
+				log::err("smesh::load - failed creating buffers for dynamic mesh");
+				return std::nullopt;
+			}
+			break;
+		}
+		case mesh_usage_type_static:
+		{
+			mesh.m_vbh_static = bgfx::createVertexBuffer(vertex_memory, layout);
+			mesh.m_ibh_static = bgfx::createIndexBuffer(index_memory);
+
+			if (!bgfx::isValid(mesh.m_vbh_static) || !bgfx::isValid(mesh.m_ibh_static))
+			{
+				log::err("smesh::load - failed creating buffers for static mesh");
+				return std::nullopt;
+			}
+			break;
+		}
+		}
+
+		mesh.m_vertex_count = snaps.m_vertices.size();
+		mesh.m_index_count = snaps.m_indices.size();
+		mesh.m_type = snaps.m_type;
 
 		return std::move(mesh);
 	}
@@ -76,18 +119,32 @@ namespace kokoro
 	//------------------------------------------------------------------------------------------------------------------------
 	void smesh::unload(smesh& mesh)
 	{
-		for (auto& group : mesh.m_groups)
+		switch (mesh.m_type)
 		{
-			if (bgfx::isValid(group.m_vbh))
+		case mesh_usage_type_static:
+		{
+			if (bgfx::isValid(mesh.m_vbh_static))
 			{
-				bgfx::destroy(group.m_vbh);
+				bgfx::destroy(mesh.m_vbh_static);
 			}
-			if (bgfx::isValid(group.m_ibh))
+			if (bgfx::isValid(mesh.m_ibh_static))
 			{
-				bgfx::destroy(group.m_ibh);
+				bgfx::destroy(mesh.m_ibh_static);
 			}
-			KOKORO_FREE(group.m_vertices);
-			KOKORO_FREE(group.m_indices);
+			break;
+		}
+		case mesh_usage_type_dynamic:
+		{
+			if (bgfx::isValid(mesh.m_vbh_dynamic))
+			{
+				bgfx::destroy(mesh.m_vbh_dynamic);
+			}
+			if (bgfx::isValid(mesh.m_ibh_dynamic))
+			{
+				bgfx::destroy(mesh.m_ibh_dynamic);
+			}
+			break;
+		}
 		}
 	}
 
