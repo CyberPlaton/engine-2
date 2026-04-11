@@ -142,6 +142,11 @@ void cgame::post_init()
 // 		}
 // 	}
 
+	kokoro::stexture_snapshot tex;
+	tex.m_texture = "engine/textures/soviet.png";
+
+	m_texture = kokoro::instance().service<kokoro::cresource_manager_service>().load_from_snapshot<kokoro::stexture>(tex);
+
 	m_world = kokoro::instance().service<kokoro::cresource_manager_service>().load_from_snapshot<kokoro::cworld>(world);
 	kokoro::instance().service<kokoro::cworld_service>().promote(m_world);
 	m_dd.init();
@@ -208,9 +213,9 @@ void cgame::update(float dt)
 	// We'll scale it down because 1.0 is the edge of the screen.
 	float scaleFactor = 0.25f;
 	
-	mtx.scale(kokoro::math::vec3_t(scaleFactor))
+	mtx.translate(kokoro::math::vec3_t(0.0f, 0.0f, 0.0f))
 		.rotate(kokoro::math::vec3_t(0.0f, 0.0f, accumulator))
-		.translate(kokoro::math::vec3_t(0.0f, 0.0f, 0.0f));
+		.scale(kokoro::math::vec3_t(scaleFactor));
 
 	//- Drawing triangle shapes
 	{
@@ -222,7 +227,8 @@ void cgame::update(float dt)
 		kokoro::math::vec3_t v4 = { 1.5f, -1.25f, 0.0f };
 		kokoro::math::vec3_t v5 = { -1.5f, -0.75f, 0.0f };
 
-		m_dd.wireframe(false)
+		m_dd.effect(kokoro::cdebug_drawer::render_effect_none)
+			.wireframe(false)
 			.triangle(
 				mtx * v0,
 				mtx * v1,
@@ -255,5 +261,31 @@ void cgame::update(float dt)
 		m_dd.line(v0, v1, 0xff0000ff)
 			.submit();
 	}
+
+	//- Drawing textures
+	{
+		if (m_texture)
+		{
+			kokoro::math::vec3_t v0 = { 0.0f,  1.0f, 0.0f }; // Top
+			kokoro::math::vec3_t v1 = { 1.0f,  0.0f, 0.0f }; // Right
+			kokoro::math::vec3_t v2 = { 0.0f, -1.0f, 0.0f }; // Bottom
+			kokoro::math::vec3_t v3 = { -1.0f,  0.0f, 0.0f }; // Left
+			kokoro::math::mat4_t mtx(1.0f);
+
+			mtx.scale(kokoro::math::vec3_t(1.0f))
+				.rotate(kokoro::math::vec3_t(0.0f, 0.0f, 0.5f))
+				.translate(kokoro::math::vec3_t(0.3f, 0.0f, 0.0f));
+
+			m_dd.effect(kokoro::cdebug_drawer::render_effect_textured)
+				.wireframe(false)
+				.texture(m_texture,
+					mtx * v0,
+					mtx * v1,
+					mtx * v2,
+					mtx * v3)
+				.submit();
+		}
+	}
+
 	m_dd.frame();
 }

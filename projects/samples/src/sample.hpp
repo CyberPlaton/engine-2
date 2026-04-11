@@ -17,4 +17,5 @@ public:
 private:
 	kokoro::cdebug_drawer m_dd;
 	kokoro::cview<kokoro::cworld> m_world;
+	kokoro::cview<kokoro::stexture> m_texture;
 };

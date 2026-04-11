@@ -3,6 +3,8 @@
 #include <engine/math/mat4.hpp>
 #include <engine/render/vertices.hpp>
 #include <engine/effect/effect.hpp>
+#include <engine/render/texture.hpp>
+#include <engine/material/material.hpp>
 #include <vector>
 
 namespace kokoro
@@ -54,6 +56,10 @@ namespace kokoro
 		enum render_effect : uint8_t
 		{
 			render_effect_none = 0,
+			render_effect_textured,
+			render_effect_textured_pixel_perfect,
+
+			render_effect_count,
 		};
 
 		cdebug_drawer();
@@ -88,12 +94,16 @@ namespace kokoro
 		//- Our base functions should be to submit many triangles, many lines and many quads and not single ones,
 		//- and the single variants should basically submit a vector of 1.
 
-		cdebug_drawer&				triangle(const math::vec3_t& v0, const math::vec3_t& v1,							//- Submit a single triangle
-										const math::vec3_t& v2, uint32_t color = 0);
-		cdebug_drawer&				quad(const math::vec3_t& v0, const math::vec3_t& v1,								//- Submit a single quad
-									const math::vec3_t& v2, const math::vec3_t& v3, uint32_t color = 0);
+		//- Submit a single triangle
+		cdebug_drawer&				triangle(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2, uint32_t color = 0);
 
-		cdebug_drawer&				line(const math::vec3_t& v0, const math::vec3_t& v1, uint32_t color = 0);			//- Submit a single line
+		//- Submit a single quad
+		cdebug_drawer&				quad(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2, const math::vec3_t& v3, uint32_t color = 0);
+
+		//- Submit a single line
+		cdebug_drawer&				line(const math::vec3_t& v0, const math::vec3_t& v1, uint32_t color = 0);
+
+		cdebug_drawer&				texture(cview<stexture> texture_view, const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2, const math::vec3_t& v3, const math::vec4_t& source = { 0.0f, 0.0f, 1.0f, 1.0f }, uint32_t color = 0);
 
 	private:
 		struct srender_state
@@ -108,6 +118,7 @@ namespace kokoro
 			float m_clear_depth					= 0.0f;
 			uint8_t m_clear_stencil				= 0;
 			cview<seffect> m_effect;
+			cview<stexture> m_texture;
 			uint16_t m_view_x					= 0;
 			uint16_t m_view_y					= 0;
 			uint16_t m_view_w					= 0;
@@ -118,10 +129,13 @@ namespace kokoro
 		srender_state m_state;
 		std::vector<spos_color_uv_vertex> m_vertices;
 		std::vector<uint16_t> m_indices;
+		suniform m_texture_sampler;
+		std::array<cview<seffect>, static_cast<uint64_t>(render_effect_count)> m_effects;
 
 	private:
 		srender_state&				state();
 		void						set_state(uint64_t value);
+		void						set_texture(cview<stexture> texture);
 		auto						indices() -> std::vector<uint16_t>&;
 		auto						vertices() -> std::vector<spos_color_uv_vertex>&;
 		void*						vertex_data() const;

@@ -1,4 +1,5 @@
 #include <engine/render/debug.hpp>
+#include <engine/math/vec2.hpp>
 #include <core/profile.hpp>
 
 namespace kokoro
@@ -10,9 +11,13 @@ namespace kokoro
 		constexpr auto C_MAT4_ID = math::mat4_t(1.0f);
 		constexpr std::array<uint16_t, 6> C_TRIANGLE_LINE_INDICES = { 0, 1, 1, 2, 2, 0};
 		constexpr std::array<uint16_t, 3> C_TRIANGLE_INDICES = { 0, 1, 2 };
-		constexpr std::array<std::string_view, 1> C_EFFECTS =
+		constexpr std::array<uint16_t, 6> C_QUAD_INDICES = { 0, 1, 2, 0, 2, 3 };
+		constexpr std::array<uint16_t, 12> C_QUAD_LINE_INDICES = { 0, 1, 1, 2, 2, 0, 0, 2, 2, 3, 3, 0 };
+		constexpr std::array<std::string_view, static_cast<uint64_t>(cdebug_drawer::render_effect_count)> C_EFFECTS =
 		{
 			"engine/effects/debug/default.effect",
+			"engine/effects/debug/default_textured.effect",
+			"engine/effects/debug/default_textured.effect",
 		};
 
 	} //- unnamed
@@ -28,9 +33,15 @@ namespace kokoro
 	bool cdebug_drawer::init()
 	{
 		auto& rms = instance().service<cresource_manager_service>();
-		m_state.m_effect = rms.load<seffect>(C_EFFECTS[0]);
 
-		//- Setup for render types
+		for (auto i = 0; i < C_EFFECTS.size(); ++i)
+		{
+			m_effects[i] = rms.load<seffect>(C_EFFECTS[i]);
+		}
+
+		m_state.m_effect = m_effects[0];
+
+		m_texture_sampler = create_uniform("s_texture", uniform_type_t::Sampler);
 		return true;
 	}
 
@@ -39,6 +50,8 @@ namespace kokoro
 	{
 		auto& rms = instance().service<cresource_manager_service>();
 		rms.unload<seffect>(m_state.m_effect.id());
+
+		bgfx::destroy(m_texture_sampler.m_handle);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -63,6 +76,7 @@ namespace kokoro
 	{
 		CPU_ZONE;
 		submit();
+		bgfx::discard(BGFX_DISCARD_ALL);
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -184,10 +198,9 @@ namespace kokoro
 	cdebug_drawer& cdebug_drawer::effect(render_effect value)
 	{
 		const auto i = static_cast<uint64_t>(value);
-		if (i < C_EFFECTS.size())
+		if (i < m_effects.size())
 		{
-			auto& rms = instance().service<cresource_manager_service>();
-			state().m_effect = rms.load<seffect>(C_EFFECTS[i]);
+			m_state.m_effect = m_effects[i];
 		}
 		return *this;
 	}
@@ -235,10 +248,11 @@ namespace kokoro
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
-	cdebug_drawer& cdebug_drawer::triangle(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2,
-		uint32_t color /*= 0*/)
+	cdebug_drawer& cdebug_drawer::triangle(const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2, uint32_t color /*= 0*/)
 	{
 		CPU_ZONE;
+
+		set_texture({});
 
 		const auto c = color == 0 ? m_state.m_color : color;
 
@@ -302,6 +316,8 @@ namespace kokoro
 	{
 		CPU_ZONE;
 
+		set_texture({});
+
 		auto state = m_state.m_state;
 		state &= ~BGFX_STATE_PT_MASK;
 		state |= BGFX_STATE_PT_LINES | BGFX_STATE_LINEAA;
@@ -312,6 +328,72 @@ namespace kokoro
 		auto& verts = vertices();
 		verts.push_back(spos_color_uv_vertex{ v0.x, v0.y, v0.z, c, 0.0f, 1.0f });
 		verts.push_back(spos_color_uv_vertex{ v1.x, v1.y, v1.z, c, 0.0f, 1.0f });
+		return *this;
+	}
+
+	//------------------------------------------------------------------------------------------------------------------------
+	cdebug_drawer& cdebug_drawer::texture(cview<stexture> texture_view, const math::vec3_t& v0, const math::vec3_t& v1, const math::vec3_t& v2,
+		const math::vec3_t& v3, const math::vec4_t& source /*= { 0.0f, 0.0f, 1.0f, 1.0f }*/, uint32_t color /*= 0*/)
+	{
+		CPU_ZONE;
+
+		//- In case the new texture is not valid, dont submit anything
+		if (!texture_view)
+		{
+			return *this;
+		}
+
+		set_texture(texture_view);
+
+		auto state = m_state.m_state;
+		state &= ~BGFX_STATE_PT_MASK;
+		set_state(state);
+
+		const auto c = color == 0 ? m_state.m_color : color;
+		math::vec2_t uv0 = { source.x, source.y }, uv1 = { source.x + source.z, source.y + source.w };
+
+		if (!m_state.m_wireframe)
+		{
+			//- Set indices for quad
+			const auto index_offset = vertex_count();
+			auto& inds = indices();
+			const auto index_count = inds.size();
+			inds.resize(index_count + C_QUAD_INDICES.size());
+
+			for (auto i = 0; i < C_QUAD_INDICES.size(); ++i)
+			{
+				inds[index_count + i] = index_offset + C_QUAD_INDICES[i];
+			}
+		}
+		else
+		{
+			//- Set line topology for drawing the wireframe
+			auto state = m_state.m_state;
+			state &= ~BGFX_STATE_PT_MASK;
+			state |= BGFX_STATE_PT_LINES | BGFX_STATE_LINEAA;
+			if (m_state.m_state != state)
+			{
+				m_state.m_state = state;
+			}
+
+			//- Set indices for lines quad
+			const auto index_offset = vertex_count();
+			auto& inds = indices();
+			const auto index_count = inds.size();
+			inds.resize(index_count + C_QUAD_LINE_INDICES.size());
+
+			for (auto i = 0; i < C_QUAD_LINE_INDICES.size(); ++i)
+			{
+				inds[index_count + i] = index_offset + C_QUAD_LINE_INDICES[i];
+			}
+		}
+
+		//- Set vertices for quad
+		auto& verts = vertices();
+		verts.push_back(spos_color_uv_vertex{ v0.x, v0.y, v0.z, c, uv0.x, uv0.y });
+		verts.push_back(spos_color_uv_vertex{ v1.x, v1.y, v1.z, c, uv1.x, uv0.y });
+		verts.push_back(spos_color_uv_vertex{ v2.x, v2.y, v2.z, c, uv1.x, uv1.y });
+		verts.push_back(spos_color_uv_vertex{ v3.x, v3.y, v3.z, c, uv0.x, uv1.y });
 		return *this;
 	}
 
@@ -331,8 +413,20 @@ namespace kokoro
 			flush();
 			curr.m_state = value;
 		}
+	}
 
-		bgfx::setState(curr.m_state);
+	//------------------------------------------------------------------------------------------------------------------------
+	void cdebug_drawer::set_texture(cview<stexture> texture)
+	{
+		auto& curr = state();
+		const auto new_handle = texture ? texture.get().m_handle.idx : bgfx::kInvalidHandle;
+		const auto curr_handle = curr.m_texture ? curr.m_texture.get().m_handle.idx : bgfx::kInvalidHandle;
+
+		if (new_handle != curr_handle)
+		{
+			flush();
+			curr.m_texture = texture;
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------------------------------
@@ -411,15 +505,10 @@ namespace kokoro
 		bgfx::setViewClear(s.m_view, s.m_clear_flags, s.m_clear_color);
 		bgfx::setViewRect(s.m_view, s.m_view_x, s.m_view_y, s.m_view_w, s.m_view_h);
 		bgfx::setViewTransform(s.m_view, C_MAT4_ID.value, C_MAT4_ID.value);
-
-		set_state(s.m_state);
-
+		if (s.m_texture) { bgfx::setTexture(0, m_texture_sampler.m_handle, s.m_texture.get().m_handle); }
+		bgfx::setState(s.m_state);
 		bgfx::setTransform(C_MAT4_ID.value);
-
-		if (s.m_effect)
-		{
-			bgfx::submit(s.m_view, s.m_effect.get().m_program);
-		}
+		if (s.m_effect) { bgfx::submit(s.m_view, s.m_effect.get().m_program); }
 
 		//- Reset the geometry
 		vertices().clear();
